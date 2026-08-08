@@ -1,0 +1,4 @@
+# call_local.sh is executed by bash, which fails on CRLF line endings
+# ($'\r': command not found). Windows clones default to core.autocrlf=true,
+# so pin the working tree to LF everywhere rather than relying on config.
+* text=auto eol=lf

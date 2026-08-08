@@ -8,11 +8,44 @@ Run: python3 tests/test_call_local.py (from the skill root or anywhere).
 """
 import json
 import pathlib
+import shutil
 import subprocess
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-SCRIPT = str(pathlib.Path(__file__).resolve().parent.parent / "scripts" / "call_local.sh")
+# as_posix() so the path survives being handed to bash on Windows, where
+# backslashes would be swallowed as escapes ("C:\Users" -> "C:Users").
+# Identical to str() on Linux/macOS.
+SCRIPT = (pathlib.Path(__file__).resolve().parent.parent / "scripts" / "call_local.sh").as_posix()
+
+
+def find_bash():
+    """Locate a bash that can reach this script and our localhost servers.
+
+    On Windows, `bash` on PATH is usually the WSL shim (System32\\bash.exe).
+    That's the wrong bash here twice over: it can't resolve C:/ paths, and
+    under WSL2 its 127.0.0.1 is a different loopback than the one the mock
+    servers below bind to. So prefer Git Bash, which shares both with us.
+    """
+    if sys.platform != "win32":
+        return "bash"
+    found = shutil.which("bash")
+    if found and "system32" not in found.lower() and "windowsapps" not in found.lower():
+        return found
+    git = shutil.which("git")  # ...\Git\cmd\git.exe -> ...\Git\bin\bash.exe
+    if git:
+        cand = pathlib.Path(git).resolve().parent.parent / "bin" / "bash.exe"
+        if cand.is_file():
+            return str(cand)
+    for cand in (r"C:\Program Files\Git\bin\bash.exe",
+                 r"C:\Program Files (x86)\Git\bin\bash.exe"):
+        if pathlib.Path(cand).is_file():
+            return cand
+    sys.exit("SKIP: no Git Bash found; call_local.sh needs a POSIX bash on Windows")
+
+
+BASH = find_bash()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -61,9 +94,12 @@ def serve(port, cls):
 a = serve(18811, Handler)
 b = serve(18812, OpenAIOnly)
 
-r1 = subprocess.run([SCRIPT, "http://127.0.0.1:18811", "m", "hi", "100"],
+# Invoke through bash explicitly: on Windows, CreateProcess cannot execute a
+# .sh directly (no shebang handling), so passing SCRIPT as argv[0] raises
+# WinError 193. Works identically on Linux/macOS.
+r1 = subprocess.run([BASH, SCRIPT, "http://127.0.0.1:18811", "m", "hi", "100"],
                     capture_output=True, text=True)
-r2 = subprocess.run([SCRIPT, "http://127.0.0.1:18812", "m", "hi", "100"],
+r2 = subprocess.run([BASH, SCRIPT, "http://127.0.0.1:18812", "m", "hi", "100"],
                     capture_output=True, text=True)
 
 assert r1.returncode == 0 and r1.stdout.strip() == "OK-anthropic", (r1.stdout, r1.stderr)
