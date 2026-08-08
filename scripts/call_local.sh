@@ -4,11 +4,11 @@
 #
 # call_local.sh — one-shot prompt against a local LLM server (Ollama, LM Studio).
 #
-# Tries the Anthropic-format endpoint (/v1/messages) first; if the server
-# returns 404 (older builds without the Anthropic dialect), falls back to the
-# OpenAI-format endpoint (/v1/chat/completions). Prints the model's reply on
-# stdout and a "[receipt] in=<n> out=<n>" token-usage line on stderr — keep
-# the receipt as evidence the call actually happened.
+# Tries the Anthropic-format endpoint (/v1/messages) first; if the server says
+# it does not serve that endpoint (404/405/501), falls back to the OpenAI-format
+# endpoint (/v1/chat/completions). Prints the model's reply on stdout and a
+# "[receipt] in=<n> out=<n>" token-usage line on stderr — keep the receipt as
+# evidence the call actually happened.
 #
 # Usage:
 #   call_local.sh <base-url> <model> <prompt> [max_tokens]
@@ -16,8 +16,24 @@
 #   call_local.sh http://localhost:11434 qwen2.5-coder:7b "Reply with exactly: OK" 512
 #   call_local.sh http://localhost:1234  gemma-3-12b     "Summarize: ..."       2048
 #
+# Exit codes:
+#   0  reply on stdout
+#   1  transport, HTTP, or parse failure (details on stderr)
+#   2  server replied 200 but the visible text was empty — see below
+#
 # Note: max_tokens defaults to 1024. Reasoning-style models spend hidden
-# tokens before visible output, so values under ~500 can return empty text.
+# tokens before visible output, so values under ~500 can come back with
+# nothing visible. That is reported as a failure (exit 2), never as an empty
+# success — a batch caller must not record "" as a valid answer.
+#
+# Timeouts: CALL_LOCAL_CONNECT_TIMEOUT (default 5s) to establish the
+# connection and CALL_LOCAL_TIMEOUT (default 300s) for the whole call. A
+# server that accepts the connection and then stalls will not hang this script
+# forever. Raise CALL_LOCAL_TIMEOUT for genuinely long generations.
+#
+# Privacy: this sends <prompt> to whatever <base-url> you give it. The name
+# says "local" but nothing here enforces it — point it at a remote host and
+# your prompt goes to that host. Keep it on localhost for private material.
 
 set -euo pipefail
 
@@ -26,38 +42,57 @@ MODEL="${2:?missing <model>}"
 PROMPT="${3:?missing <prompt>}"
 MAX_TOKENS="${4:-1024}"
 
+CONNECT_TIMEOUT="${CALL_LOCAL_CONNECT_TIMEOUT:-5}"
+TIMEOUT="${CALL_LOCAL_TIMEOUT:-300}"
+
 BODY=$(MODEL="$MODEL" PROMPT="$PROMPT" MAX_TOKENS="$MAX_TOKENS" python3 -c '
-import json, os
+import json, os, sys
+
+raw = os.environ["MAX_TOKENS"]
+try:
+    max_tokens = int(raw)
+except ValueError:
+    sys.exit("call_local.sh: max_tokens must be an integer, got %r" % raw)
+
 print(json.dumps({
     "model": os.environ["MODEL"],
-    "max_tokens": int(os.environ["MAX_TOKENS"]),
+    "max_tokens": max_tokens,
     "messages": [{"role": "user", "content": os.environ["PROMPT"]}],
 }))
 ')
 
+# Echoes "<http_code> <curl_exit>". curl's exit status has to ride along in
+# stdout: the caller reads this through a command substitution, so a global
+# set in here would not survive the subshell.
 do_post() {
-    # $1 = path, remaining args = extra curl headers
-    local path="$1" code
+    local path="$1" code rc=0
     shift
-    code=$(curl -sS -o "$RESP_FILE" -w '%{http_code}' -X POST "$BASE$path" \
-        -H 'content-type: application/json' "$@" -d "$BODY") || code="000"
-    echo "${code:-000}"
+    code=$(curl -sS -o "$RESP_FILE" -w '%{http_code}' \
+        --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
+        -X POST "$BASE$path" -H 'content-type: application/json' "$@" -d "$BODY") || rc=$?
+    echo "${code:-000} $rc"
 }
 
 RESP_FILE=$(mktemp)
 trap 'rm -f "$RESP_FILE"' EXIT
 
-CODE=$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')
-if [ "$CODE" = "404" ]; then
-    CODE=$(do_post /v1/chat/completions)
-fi
+read -r CODE CURL_RC <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
+
+# 404, 405 and 501 all mean "this server doesn't serve that endpoint" — try the
+# OpenAI dialect before giving up. Matching only 404 would strand us on servers
+# that answer an unknown path with 405. Anything else is a genuine failure and
+# retrying the other dialect would just obscure it.
+case "$CODE" in
+    404|405|501) read -r CODE CURL_RC <<<"$(do_post /v1/chat/completions)" ;;
+esac
 
 if [ "$CODE" != "200" ]; then
-    if [ "$CODE" = "000" ]; then
-        echo "call_local.sh: no server reachable at $BASE" >&2
-    else
-        echo "call_local.sh: HTTP $CODE from $BASE" >&2
-    fi
+    case "$CURL_RC" in
+        28)  echo "call_local.sh: timed out after ${TIMEOUT}s talking to $BASE (raise CALL_LOCAL_TIMEOUT)" >&2 ;;
+        6|7) echo "call_local.sh: no server reachable at $BASE" >&2 ;;
+        0)   echo "call_local.sh: HTTP $CODE from $BASE" >&2 ;;
+        *)   echo "call_local.sh: curl failed (exit $CURL_RC) talking to $BASE" >&2 ;;
+    esac
     cat "$RESP_FILE" >&2 || true
     exit 1
 fi
@@ -66,14 +101,47 @@ python3 - "$RESP_FILE" <<'PY'
 import json, sys
 
 with open(sys.argv[1]) as f:
-    d = json.load(f)
+    try:
+        d = json.load(f)
+    except json.JSONDecodeError as e:
+        sys.exit(f"call_local.sh: HTTP 200 but the body is not JSON ({e})")
+
+if not isinstance(d, dict):
+    sys.exit(f"call_local.sh: unexpected JSON top level: {type(d).__name__}")
+
+# A 200 can still carry an error body. Say so plainly rather than dying on a
+# missing key further down and blaming the wrong dialect.
+if "content" not in d and "choices" not in d:
+    err = d.get("error")
+    if err is not None:
+        msg = err.get("message") if isinstance(err, dict) else err
+        sys.exit(f"call_local.sh: server returned an error: {msg}")
+    sys.exit(f"call_local.sh: unrecognized response shape (keys: {', '.join(sorted(d))})")
 
 if "content" in d:  # Anthropic format
-    print("".join(b.get("text", "") for b in d["content"] if b.get("type") == "text"))
+    blocks = d["content"] if isinstance(d["content"], list) else []
+    text = "".join(b.get("text", "") for b in blocks
+                   if isinstance(b, dict) and b.get("type") == "text")
     u = d.get("usage", {})
-    print(f"[receipt] in={u.get('input_tokens')} out={u.get('output_tokens')}", file=sys.stderr)
+    receipt = f"[receipt] in={u.get('input_tokens')} out={u.get('output_tokens')}"
 else:  # OpenAI format
-    print(d["choices"][0]["message"]["content"])
+    try:
+        # content is None on tool-call and filtered responses; treat as empty
+        # rather than printing the string "None" as if it were the answer.
+        text = d["choices"][0]["message"]["content"] or ""
+    except (IndexError, KeyError, TypeError) as e:
+        sys.exit(f"call_local.sh: malformed OpenAI-format response ({e})")
     u = d.get("usage", {})
-    print(f"[receipt] in={u.get('prompt_tokens')} out={u.get('completion_tokens')}", file=sys.stderr)
+    receipt = f"[receipt] in={u.get('prompt_tokens')} out={u.get('completion_tokens')}"
+
+# Receipt first, so it survives even when the reply itself turns out empty.
+print(receipt, file=sys.stderr)
+
+if not text.strip():
+    print("call_local.sh: server replied 200 but the visible text was empty — "
+          "raise max_tokens (reasoning models spend hidden tokens first)",
+          file=sys.stderr)
+    sys.exit(2)
+
+print(text)
 PY

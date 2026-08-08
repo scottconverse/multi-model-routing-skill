@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Smoke-test call_local.sh against mock local-LLM servers.
 
-Server A (port 18811): speaks Anthropic /v1/messages.
-Server B (port 18812): 404s /v1/messages, speaks OpenAI /v1/chat/completions.
+Covers the happy paths plus every failure mode found in the 2026-08-08 audit:
+dialect fallback (404 and 405), empty replies, error bodies served with HTTP
+200, null OpenAI content, and stalled servers.
 
 Run: python3 tests/test_call_local.py (from the skill root or anywhere).
 """
@@ -42,69 +43,114 @@ def find_bash():
                  r"C:\Program Files (x86)\Git\bin\bash.exe"):
         if pathlib.Path(cand).is_file():
             return cand
-    sys.exit("SKIP: no Git Bash found; call_local.sh needs a POSIX bash on Windows")
+    # Exit 0: no POSIX bash is a legitimate skip, not a failed assertion. A
+    # non-zero exit here would show up as a red build on machines that simply
+    # can't run the script.
+    print("SKIP: no Git Bash found; call_local.sh needs a POSIX bash on Windows")
+    sys.exit(0)
 
 
 BASH = find_bash()
 
+ANTHROPIC_OK = {"content": [{"type": "text", "text": "OK-anthropic"}],
+                "usage": {"input_tokens": 5, "output_tokens": 3}}
+OPENAI_OK = {"choices": [{"message": {"content": "OK-openai"}}],
+             "usage": {"prompt_tokens": 5, "completion_tokens": 3}}
 
-class Handler(BaseHTTPRequestHandler):
-    anthropic_ok = True
 
-    def do_POST(self):
-        n = int(self.headers.get("content-length", 0))
-        req = json.loads(self.rfile.read(n))
-        assert req["messages"][0]["role"] == "user"
-        if self.path == "/v1/messages" and self.anthropic_ok:
-            body = {
-                "content": [{"type": "text", "text": "OK-anthropic"}],
-                "usage": {"input_tokens": 5, "output_tokens": 3},
-            }
-        elif self.path == "/v1/chat/completions":
-            body = {
-                "choices": [{"message": {"content": "OK-openai"}}],
-                "usage": {"prompt_tokens": 5, "completion_tokens": 3},
-            }
-        else:
-            self.send_response(404)
+def make(messages_status, messages_body=None, chat_body=None, stall=False):
+    """Build a handler: how /v1/messages behaves, and what /v1/chat/completions returns."""
+    class H(BaseHTTPRequestHandler):
+        def do_POST(self):
+            req = json.loads(self.rfile.read(int(self.headers.get("content-length", 0))))
+            assert req["messages"][0]["role"] == "user"
+            if stall:
+                threading.Event().wait(120)   # accept, then never answer
+                return
+            if self.path == "/v1/messages":
+                if messages_status == 200:
+                    return self.reply(200, messages_body)
+                return self.reply(messages_status, {"error": {"message": "nope"}})
+            if self.path == "/v1/chat/completions":
+                return self.reply(200, chat_body)
+            self.reply(404, {})
+
+        def reply(self, code, obj):
+            data = json.dumps(obj if obj is not None else {}).encode()
+            self.send_response(code)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(data)))
             self.end_headers()
-            self.wfile.write(b"{}")
-            return
-        data = json.dumps(body).encode()
-        self.send_response(200)
-        self.send_header("content-type", "application/json")
-        self.send_header("content-length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+            self.wfile.write(data)
 
-    def log_message(self, *a):
-        pass
+        def log_message(self, *a):
+            pass
+    return H
 
 
-class OpenAIOnly(Handler):
-    anthropic_ok = False
-
-
-def serve(port, cls):
-    srv = HTTPServer(("127.0.0.1", port), cls)
+def serve(port, handler):
+    srv = HTTPServer(("127.0.0.1", port), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
 
 
-a = serve(18811, Handler)
-b = serve(18812, OpenAIOnly)
+def run(port, env=None, max_tokens="100"):
+    full = None
+    if env:
+        import os
+        full = {**os.environ, **env}
+    return subprocess.run([BASH, SCRIPT, f"http://127.0.0.1:{port}", "m", "hi", max_tokens],
+                          capture_output=True, text=True, timeout=90, env=full)
 
-# Invoke through bash explicitly: on Windows, CreateProcess cannot execute a
-# .sh directly (no shebang handling), so passing SCRIPT as argv[0] raises
-# WinError 193. Works identically on Linux/macOS.
-r1 = subprocess.run([BASH, SCRIPT, "http://127.0.0.1:18811", "m", "hi", "100"],
-                    capture_output=True, text=True)
-r2 = subprocess.run([BASH, SCRIPT, "http://127.0.0.1:18812", "m", "hi", "100"],
-                    capture_output=True, text=True)
 
-assert r1.returncode == 0 and r1.stdout.strip() == "OK-anthropic", (r1.stdout, r1.stderr)
-assert "[receipt] in=5 out=3" in r1.stderr, r1.stderr
-assert r2.returncode == 0 and r2.stdout.strip() == "OK-openai", (r2.stdout, r2.stderr)
-assert "[receipt] in=5 out=3" in r2.stderr, r2.stderr
-print("PASS: anthropic path, openai 404-fallback path, receipts on stderr")
-a.shutdown(); b.shutdown()
+CASES = [
+    (18811, make(200, ANTHROPIC_OK)),                       # anthropic happy path
+    (18812, make(404, chat_body=OPENAI_OK)),                # 404 -> openai fallback
+    (18813, make(405, chat_body=OPENAI_OK)),                # 405 -> openai fallback
+    (18814, make(200, {"content": [], "usage": {"input_tokens": 9, "output_tokens": 0}})),
+    (18815, make(200, {"type": "error", "error": {"message": "overloaded"}})),
+    (18816, make(404, chat_body={"choices": [{"message": {"content": None}}]})),
+    (18817, make(200, stall=True)),                         # accepts, never replies
+]
+for port, handler in CASES:
+    serve(port, handler)
+
+# --- happy paths ------------------------------------------------------------
+r = run(18811)
+assert r.returncode == 0 and r.stdout.strip() == "OK-anthropic", (r.stdout, r.stderr)
+assert "[receipt] in=5 out=3" in r.stderr, r.stderr
+
+r = run(18812)
+assert r.returncode == 0 and r.stdout.strip() == "OK-openai", (r.stdout, r.stderr)
+assert "[receipt] in=5 out=3" in r.stderr, r.stderr
+
+# --- regressions from the 2026-08-08 audit ----------------------------------
+# 405 must fall back too, not just 404.
+r = run(18813)
+assert r.returncode == 0 and r.stdout.strip() == "OK-openai", ("405 fallback", r.stdout, r.stderr)
+
+# An empty reply is a failure (exit 2), never an empty success.
+r = run(18814)
+assert r.returncode == 2, ("empty reply must exit 2", r.returncode, r.stdout, r.stderr)
+assert r.stdout.strip() == "", r.stdout
+assert "empty" in r.stderr.lower(), r.stderr
+assert "[receipt] in=9 out=0" in r.stderr, ("receipt still emitted", r.stderr)
+
+# HTTP 200 carrying an error body must be named, not a KeyError traceback.
+r = run(18815)
+assert r.returncode == 1, (r.returncode, r.stderr)
+assert "overloaded" in r.stderr, r.stderr
+assert "Traceback" not in r.stderr, ("must not leak a traceback", r.stderr)
+
+# null OpenAI content must not print the string "None" as the answer.
+r = run(18816)
+assert r.returncode == 2, (r.returncode, r.stdout, r.stderr)
+assert "None" not in r.stdout, r.stdout
+
+# A stalled server must not hang forever.
+r = run(18817, env={"CALL_LOCAL_TIMEOUT": "3", "CALL_LOCAL_CONNECT_TIMEOUT": "2"})
+assert r.returncode == 1, (r.returncode, r.stderr)
+assert "timed out" in r.stderr.lower(), r.stderr
+
+print("PASS: anthropic, openai 404-fallback, 405-fallback, empty-reply, "
+      "error-body, null-content, stall-timeout")
