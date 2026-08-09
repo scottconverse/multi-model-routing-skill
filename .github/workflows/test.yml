@@ -75,5 +75,22 @@ jobs:
 
       - name: install.py dry run must not touch anything
         run: |
-          python3 install.py --list > /dev/null
+          # --project, not auto-detect: a CI runner has no ~/.claude or
+          # ~/.gemini, and install.py correctly exits 1 when it finds no
+          # harness. Point it at a scratch dir so we test the dry run itself.
+          python3 install.py --project "$RUNNER_TEMP/probe" --list > /dev/null
+          test ! -e "$RUNNER_TEMP/probe" \
+            || { echo "--list created files; it must not"; exit 1; }
+          git diff --exit-code
+
+      - name: install.py real install works
+        run: |
+          python3 install.py --project "$RUNNER_TEMP/real" > /dev/null
+          D="$RUNNER_TEMP/real/.claude/skills/multi-model-routing"
+          for f in SKILL.md scripts/call_local.sh references/local-backends.md \
+                   references/local-notes.md; do
+            test -f "$D/$f" || { echo "install missing $f"; exit 1; }
+          done
+          test -x "$D/scripts/call_local.sh" \
+            || { echo "installed script is not executable"; exit 1; }
           git diff --exit-code
