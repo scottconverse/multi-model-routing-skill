@@ -38,15 +38,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: shellcheck call_local.sh
+      - name: shellcheck every shipped script
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck -S warning scripts/call_local.sh
+          # every shipped script, not one by name -- same bug class as the
+          # executable-bit guard below.
+          shellcheck -S warning $(git ls-files 'scripts/*.sh')
 
-      - name: call_local.sh must stay executable
+      - name: every shipped script must stay executable
         run: |
-          test -x scripts/call_local.sh \
-            || { echo "scripts/call_local.sh lost its +x bit"; exit 1; }
+          # Checking by NAME was the bug: benchmarks.sh shipped as 100644 for a
+          # whole release because this guard only knew about call_local.sh.
+          # Read the git index for every scripts/*.sh so a new script is
+          # covered the moment it lands. The index is what a POSIX clone gets;
+          # the working-tree bit is meaningless on Windows.
+          fail=0
+          for f in $(git ls-files 'scripts/*.sh'); do
+            mode=$(git ls-files -s "$f" | cut -d' ' -f1)
+            if [ "$mode" != "100755" ]; then
+              echo "$f is $mode in git, expected 100755"
+              echo "  fix: git update-index --chmod=+x $f"
+              fail=1
+            fi
+          done
+          exit $fail
 
       - name: no CRLF in tracked text files
         run: |

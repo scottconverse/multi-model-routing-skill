@@ -4,7 +4,20 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.3.5] — 2026-08-09
+
+### Fixed
+- **`scripts/benchmarks.sh` shipped non-executable.** It was committed as
+  `100644` while `call_local.sh` was `100755`, so every Linux and macOS clone
+  got a script it couldn't run directly. Found by the pre-release lifecycle
+  check, not by CI — because the CI guard tested `scripts/call_local.sh` **by
+  name** and knew nothing about a second script. Both the executable-bit guard
+  and shellcheck now iterate `git ls-files 'scripts/*.sh'`, so a new script is
+  covered the moment it lands rather than whenever someone remembers.
+
+  The guard reads the **git index**, not the working tree: the index is what a
+  POSIX clone actually gets, and the working-tree bit is meaningless on
+  Windows — which is exactly why this went unnoticed here for a release.
 
 ### Added
 - **`CALL_LOCAL_DIALECT=auto|anthropic|openai`.** `auto` (unchanged default)
