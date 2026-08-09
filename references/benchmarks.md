@@ -48,6 +48,27 @@ CSVs**, updated that same day. A Python client also exists
 (`pip install epochai`) if relationships between entities matter more than flat
 files.
 
+### The `--measure` values
+
+`scripts/benchmarks.sh --list` prints these; they are named here so you can
+reach for one without running it first.
+
+| `--measure` | Backing file | `--open` supported? |
+|---|---|---|
+| `capabilities` *(default)* | `epoch_capabilities_index.csv` | **yes** |
+| `coding` | `swe_bench_verified.csv` | no |
+| `terminal` | `terminalbench_external.csv` | no |
+| `aider` | `aider_polyglot_external.csv` | no |
+| `agentic` | `os_world_external.csv` | no |
+| `reasoning` | `gpqa_diamond.csv` | no |
+
+⚠️ **`--open` only works with `capabilities`.** Only that file carries a
+`Model accessibility` column; the per-benchmark files don't record open versus
+closed. Asking for `--open` on the others is refused with an explanation rather
+than an empty list — an empty list would read as "no open model scores here,"
+which is false. To compare open and closed on a specific benchmark, filter by
+name with `--model` against a model you already know the licence of.
+
 ### The files that matter for routing
 
 | File | Use |

@@ -42,7 +42,18 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --measure) MEASURE="${2:?--measure needs a value}"; shift 2 ;;
         --model)   MODEL_FILTER="${2:?--model needs a value}"; shift 2 ;;
-        --limit)   LIMIT="${2:?--limit needs a value}"; shift 2 ;;
+        --limit)
+            LIMIT="${2:?--limit needs a value}"
+            # Validate here, not in the python below. Leaving it to int() gave a
+            # raw ValueError traceback -- the exact failure call_local.sh was
+            # corrected for in v0.3.2. A shipped script should never answer a
+            # bad argument with a stack trace.
+            case "$LIMIT" in
+                ''|*[!0-9]*|0)
+                    echo "benchmarks.sh: --limit must be a positive integer, got '$LIMIT'" >&2
+                    exit 1 ;;
+            esac
+            shift 2 ;;
         --open)    OPEN_ONLY=1; shift ;;
         --refresh) REFRESH=1; shift ;;
         --list)    LIST=1; shift ;;
@@ -135,6 +146,18 @@ acc_col  = "Model accessibility" if "Model accessibility" in rows[0] else None
 
 filt = os.environ["MODEL_FILTER"].lower()
 open_only = os.environ["OPEN_ONLY"] == "1"
+
+# --open needs an accessibility column, and only some files carry one. Saying
+# "nothing matched" here would be true and useless: the reader concludes no
+# open model scores on this measure, which is false -- the data simply does not
+# record open vs closed. Name the real reason and point at a measure that works.
+if open_only and acc_col is None:
+    sys.exit(f"benchmarks.sh: --open is not available for measure {measure!r}: "
+             f"{fn} carries no accessibility data, so open and closed models "
+             f"cannot be told apart here.\n"
+             f"  This says nothing about how open models score on it.\n"
+             f"  Use --measure capabilities for open/closed filtering, "
+             f"or drop --open.")
 
 best = {}
 for r in rows:

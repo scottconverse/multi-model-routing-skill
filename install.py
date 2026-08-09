@@ -36,6 +36,7 @@ PAYLOAD = [
     "scripts/benchmarks.sh",
     "tests/test_call_local.py",        # lets a user verify their own install
     "tests/test_install.py",
+    "tests/test_benchmarks.py",
     "references/benchmarks.md",
     "references/codex.md",
     "references/cross-agent.md",
@@ -50,6 +51,8 @@ NOT_SHIPPED = [
     "CHANGELOG.md",                    # repo history, not skill behaviour
     "CONTRIBUTING.md",                 # for contributors, not users
     "docs/DISCUSSIONS_SEED.md",        # GitHub Discussions material
+    "docs/audits/audit-lite-multi-model-routing-2026-08-09.md",  # a record of
+                                       # review, not skill behaviour
     "docs/index.html",                 # the landing page, published via Pages
     "docs/.nojekyll",                  # Pages build hint
     ".gitignore",                      # repo hygiene; an install is not a repo

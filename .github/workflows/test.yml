@@ -39,6 +39,10 @@ jobs:
         shell: bash
         run: python3 tests/test_install.py
 
+      - name: Run benchmarks.sh suite
+        shell: bash
+        run: python3 tests/test_benchmarks.py
+
   lint:
     name: shell + docs sanity
     runs-on: ubuntu-latest
