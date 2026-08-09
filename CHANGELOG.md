@@ -36,6 +36,43 @@ run. Both fixed, and running them found real defects in the advice itself.
   reported 13 tools including document, spreadsheet, presentation and PDF
   authoring. `exec` is not a bare text endpoint.
 
+### Fixed — defects found by finally running `codex review`
+- **A false claim was on the landing page.** "A tool server registered once is
+  reachable from whichever agent you route to" is wrong. MCP registration is
+  **per-agent**: `~/.codex/config.toml`, `~/.gemini/config/mcp_config.json` and
+  `~/.claude.json` are separate registries, and adding a server to one does
+  nothing for the others. Corrected in four places.
+- **The canonical `codex review` call in the docs did not work.** `review`
+  rejects `-m` outright, has no `-s/--sandbox`, and its free-text prompt is
+  mutually exclusive with `--commit`. It reviews a **diff**, not arbitrary
+  files — for a single file, `codex exec` is the right tool. All three traps
+  documented.
+- The Chrome DevTools example uses `npx`, which on Windows is the same class of
+  `.cmd` shim that section warns about. It works, but the tension is now called
+  out with the fix if a registration ever silently yields no tools.
+
+### Added — repo conventions
+- **`install.py`** — installs into Claude Code and/or Antigravity, auto-detects
+  both, `--list` for a dry run, `--project` for a single project, and refuses
+  to overwrite an existing `local-notes.md`.
+- **CI** (`.github/workflows/test.yml`) — the suite on **Ubuntu and Windows**
+  (every defect this repo has shipped was Windows-specific), plus shellcheck,
+  an executable-bit check, a CRLF check, a guard that `local-notes.md` is never
+  tracked, a check that every referenced `references/*.md` exists, and both a
+  dry-run and a real-install test for `install.py`.
+- **`CONTRIBUTING.md`** — the evidence rule, argued from the four defects this
+  repo shipped by breaking it.
+- **`docs/DISCUSSIONS_SEED.md`** — six open questions from building this.
+
+### Verified while closing out
+- `qwen2.5-coder-14b-instruct` (8.99 GB) works — 25.9 s including load.
+- **`google/gemma-4-26b-a4b` (17.99 GB) does not load at 17.5 GB free.** It
+  thrashed and hit the 300 s timeout having received zero bytes. Half a
+  gigabyte short cost six minutes — a model that "almost fits" does not fit.
+  This is also the v0.1.0 timeout fix earning its place in real use.
+- `agy agents` returns an empty list with exit 0 — no agents configured, not an
+  error.
+
 ### Changed
 - **New rule: ask small local models for constrained plain text, not JSON
   schema.** Measured on one model and prompt — a one-word answer scored 12/12
