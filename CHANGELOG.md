@@ -32,6 +32,19 @@ systems. **Every path below was verified by a live call before shipping.**
   (`qwen2.5:7b` fails, `gemma4:e4b` works).
 - `agy models` and `codex doctor` added to the discovery table as the real
   probes.
+- **Agents driving agents over MCP, verified end to end.** `codex mcp-server`
+  exposes Codex as an MCP server (protocol `2025-06-18`, tools `codex` and
+  `codex-reply`), confirmed by a raw stdio handshake. Wiring it into a client's
+  MCP config lets that client call Codex natively; a live Antigravity → MCP →
+  Codex → reply run completed in 17.9 s. Documented with the gotcha that cost
+  the time: register the **absolute path to the real executable**, never the
+  PATH shim, because `.cmd` wrappers fail to spawn under stdio MCP.
+- Recorded that a call through a bridge spends the **callee's** quota —
+  Antigravity → Codex bills Codex. Useful when one meter is tight, but it
+  should be a deliberate choice, and the skill now says to name the meter.
+- Four Antigravity models verified with live calls rather than taken from a
+  list: `gemini-3.6-flash-low` (4.5 s), `claude-opus-4-6-thinking` (8 s),
+  `claude-sonnet-4-6` (5 s), `gpt-oss-120b-medium` (5 s).
 
 ### Changed
 - **Model choice is now the agent's decision, made on capability.** The old
@@ -52,7 +65,12 @@ systems. **Every path below was verified by a live call before shipping.**
   trap that produced a false "sol/terra/luna unavailable" conclusion here.
 
 ### Notes
-- **Claude Code against a local model: tested, does not work in practice.**
+- **Calling local models works; *running on* one doesn't.** These get
+  conflated, so the docs now separate them explicitly. An agent calling a local
+  model through `scripts/call_local.sh` is the skill's core path and is proven
+  repeatedly with receipts — real classifications and real prose tasks on both
+  backends, not just smoke replies. Only the second case below failed.
+- **Claude Code *running on* a local model: tested, does not work in practice.**
   The protocol is fine — a logging mock proved `claude -p` completes, and
   Ollama accepts every field it sends. But ~10k tokens of system prompt costs
   41.8 s cold on an 8B model, and Claude Code sends more than that plus 4+

@@ -169,12 +169,13 @@ batches, weigh it against a local model.
 Mechanical bulk work that must stay on Claude goes to Haiku. Fan-out is
 capped and tracked — never fire-and-forget.
 
-**Don't point Claude Code at a local model.** `ANTHROPIC_BASE_URL` is
-protocol-compatible — local servers accept every field Claude Code sends — but
-a large system prompt costs ~42 s of prompt processing per call on a small
-local model, and Claude Code makes several calls per turn. Tested twice; never
-completed in 5 minutes. Use `call_local.sh` instead, where you control the
-prompt size.
+**Calling local models works. Running *on* one doesn't.** Your agent calling a
+local model via `call_local.sh` is this skill's core path — proven, fast, with
+receipts. What fails is replacing Claude Code's *own inference backend* with a
+local server (`ANTHROPIC_BASE_URL`): protocol-compatible, but a large system
+prompt costs ~42 s of prompt processing per call on a small local model and
+Claude Code makes several calls per turn. Tested twice; never completed in
+5 minutes. Calling local models, yes. Being one, no.
 
 ### Codex running on your local models (free)
 

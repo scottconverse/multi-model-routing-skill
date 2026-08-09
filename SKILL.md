@@ -183,18 +183,39 @@ schema-validated classification, with a token receipt in the same JSON.
   weigh it against a local model.
 - Details and flags: `references/cross-agent.md`.
 
+### Agents driving agents (MCP)
+
+`codex mcp-server` makes Codex an MCP server over stdio, so any MCP client —
+Claude Code, Cowork, Antigravity — can call Codex as a native tool instead of
+shelling out and scraping stdout. It exposes `codex` (run a session) and
+`codex-reply` (continue a thread).
+
+Register it in the client's MCP config with the **absolute path to the real
+executable**, not a PATH shim — `.cmd` wrappers commonly fail to spawn under
+stdio MCP. Recipe and a verified end-to-end run are in
+`references/cross-agent.md`.
+
+**A call through a bridge spends the *callee's* quota.** Routing Antigravity →
+Codex bills Codex, not Antigravity. That's useful when one meter is tight —
+but be deliberate, and say which meter you're spending.
+
 ### Claude subagents
 
 Pass `model: "haiku" | "sonnet" | "opus"` on the Agent call; use whatever
 models this session exposes. Mechanical bulk work that must stay on Claude
 goes to Haiku. Cap every fan-out, track your agents, never fire-and-forget.
 
-**Do not point Claude Code at a local model.** `ANTHROPIC_BASE_URL` is
-protocol-compatible — local servers accept every field it sends — but a large
-system prompt costs ~42 s of prompt processing per call on a small local model,
-and Claude Code makes several calls per turn. Two attempts never completed in
-5 minutes. Use `scripts/call_local.sh` for local work, where you control prompt
-size. Full findings in `references/cross-agent.md`.
+**You drive local models constantly — that's this whole skill.** Use
+`scripts/call_local.sh`. It works, it's fast, and it produces receipts.
+
+The one thing that does NOT work is *replacing your own inference backend* with
+a local server — running Claude Code itself on local weights via
+`ANTHROPIC_BASE_URL`, rather than calling out to them. That path is
+protocol-compatible (local servers accept every field Claude Code sends) but
+impractical: a large system prompt costs ~42 s of prompt processing per call on
+a small model, and Claude Code makes several calls per turn. Two attempts never
+finished in 5 minutes. Calling local models = yes. Being one = no. Full
+findings in `references/cross-agent.md`.
 
 ## Choose the BEST local model, not just the loaded one
 

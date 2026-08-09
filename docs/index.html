@@ -184,7 +184,7 @@
   </table>
   </div>
   <p style="margin-top:18px"><strong>Two routes worth knowing.</strong> <code>codex exec --oss --local-provider ollama</code> runs Codex's full agent loop — tooling, sandboxing and all — on free local weights, at zero API cost. And <code>agy --json-schema</code> returns schema-validated JSON with a token receipt in about two seconds, which makes it the best structured-batch surface of the lot.</p>
-  <p class="muted">Both verified by live calls, not read off a help page. So was the negative result: pointing Claude Code itself at a local model is protocol-compatible but impractically slow — ~42&nbsp;s of prompt processing per call on a small model, several calls per turn. It's documented as a dead end so nobody re-derives it.</p>
+  <p class="muted">Both verified by live calls, not read off a help page. One boundary worth stating precisely: your agent <em>calling</em> local models is the core path here and it works — that's what the bundled script does. What doesn't work is replacing an agent's own inference backend with a local server: protocol-compatible, but ~42&nbsp;s of prompt processing per call on a small model, several calls per turn. Calling local models, yes. Being one, no. Documented as a dead end so nobody re-derives it.</p>
 </section>
 
 <section class="wrap">

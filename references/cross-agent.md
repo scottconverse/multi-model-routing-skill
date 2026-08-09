@@ -52,6 +52,19 @@ agy -p "prompt" --model gemini-3.6-flash-low
 *Verified: returned `ANTIGRAVITY-OK` in **4.5 s**, exit 0. Fastest backend on
 this machine — faster than Codex (34 s) and faster than a cold local model.*
 
+**Four models personally verified** with live calls on 2026-08-08, not just
+read off `agy models`:
+
+| Model | Round trip |
+|---|---|
+| `gemini-3.6-flash-low` | 4.5 s |
+| `claude-opus-4-6-thinking` | 8 s |
+| `claude-sonnet-4-6` | 5 s |
+| `gpt-oss-120b-medium` | 5 s |
+
+Claude Opus 4.6 answering in 8 s **on a meter separate from Claude quota** is
+the single most useful fact here when Claude usage is running tight.
+
 ### Structured output — the best batch surface here
 
 ```bash
@@ -114,9 +127,17 @@ ERROR: "qwen2.5:7b" does not support thinking
 
 ---
 
-## 4. Claude Code against a local model — works in protocol, too slow in practice
+## 4. Claude *calling* local models works. Claude *running on* one doesn't.
 
-**Don't route to this.** Documented so nobody re-derives it.
+Keep these apart — they get conflated constantly.
+
+| | Works? |
+|---|---|
+| Claude **calls** a local model (`scripts/call_local.sh`) | ✅ **Yes — this is the skill's core path.** Proven repeatedly with receipts: real classifications, real prose tasks, both backends. |
+| Claude Code **runs on** a local model (`ANTHROPIC_BASE_URL`) — replacing its own inference backend | ❌ No, in practice |
+
+Everything below concerns only the second row. Documented so nobody re-derives
+it — and so nobody reads it as "Claude can't use local models," which is false.
 
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:11434 \
@@ -144,15 +165,49 @@ faster local model or far smaller system prompt.
 
 ---
 
-## 5. MCP is the interop bus
+## 5. MCP is the interop bus — verified working
 
-- **`codex mcp-server`** — Codex exposes *itself* as an MCP server over stdio.
-  Any MCP client (Claude Code, Cowork, Antigravity) can drive Codex as a native
-  tool instead of shelling out and scraping stdout.
-- **`codex mcp`** — manages MCP servers Codex itself can reach.
-- **Antigravity** reads `~/.gemini/config/mcp_config.json`. On this machine it
-  is **empty** — the hook exists and is unused. Wiring `codex mcp-server` in
-  there would let Antigravity drive Codex directly.
+**`codex mcp-server`** makes Codex an MCP server over stdio, so any MCP client
+(Claude Code, Cowork, Antigravity) can drive Codex as a native tool instead of
+shelling out and scraping stdout.
+
+*Verified by raw stdio handshake 2026-08-08:* protocol `2025-06-18`, serverInfo
+`codex-mcp-server` v0.145.0, exposing two tools — **`codex`** (run a session)
+and **`codex-reply`** (continue a thread by id).
+
+### Wiring Antigravity → Codex
+
+Antigravity reads `~/.gemini/config/mcp_config.json`, using the standard
+`mcpServers` shape (same as its own plugins):
+
+```json
+{
+  "mcpServers": {
+    "codex": {
+      "command": "<absolute path to codex.exe>",
+      "args": ["mcp-server"],
+      "env": {}
+    }
+  }
+}
+```
+
+**Use the absolute path to the real executable, not the `codex` shim.** On
+Windows the PATH entry is a `.cmd` wrapper, which stdio MCP clients frequently
+fail to spawn. The real binary lives under
+`…\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe`.
+
+*Verified end-to-end 2026-08-08:* after writing that config, Antigravity
+reported `codex` and `codex-reply` among its MCP tools, and a live run —
+Antigravity → MCP → Codex → reply — returned in **17.9 s**. The bridge works;
+it isn't theoretical.
+
+Note that a tool call through the bridge spends **Codex** quota, not
+Antigravity's. Routing through MCP changes which meter you're on — that's a
+feature, but be deliberate about it.
+
+- **`codex mcp`** manages MCP servers Codex itself can reach — the reverse
+  direction, letting Codex use other agents' tools.
 
 ## 6. Skills are portable across harnesses
 
