@@ -54,6 +54,21 @@ should be a rename of this heading, not an archaeology exercise.
   a directory, and no entry may contain a date.
 
 ### Notes
+- **The CI "no CRLF" check could not fail.** `.gitattributes` is
+  `* text=auto eol=lf` with no `-text` exception, so a fresh checkout
+  normalises every text file to LF *before* the step grepped the working tree
+  — 0 of 28 committed blobs contained CRLF, and a fresh clone found nothing, as
+  it always would. It now checks `git ls-files --eol` for any `i/crlf`, which
+  is what a clone actually receives, and prints the tracked-file count so a
+  vacuous pass is visible. Verified against a purpose-built repo whose index
+  genuinely stores CRLF. The working-tree grep is kept underneath it: it does
+  catch a `-text` path, so the two together are stronger than either.
+- **The "git is spawned only through `git_run()`" guard matched
+  `subprocess.run` alone**, so `check_output(["git", ...])` and
+  `Popen(["git", ...])` sailed through — and `check_output` is the natural
+  choice for the read-only queries this file makes, raising `FileNotFoundError`
+  identically. It now matches any `subprocess.<attr>` whose first argument is a
+  list starting with `"git"`: 4 of 4 entry points caught, where 3 of 4 escaped.
 - **The suite no longer requires git.** Nothing about this skill does —
   `install.py` is pure Python, the shell scripts want curl and python3 — but
   `tests/test_install.py` spawned git at eight call sites without a guard, so on

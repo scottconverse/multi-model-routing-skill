@@ -66,7 +66,7 @@ Eight call sites, not six.
 ```yaml
 if grep -rlIU $'\r' --exclude-dir=.git . ; then ... exit 1
 ```
-Every text file is normalised to LF by that checkout *by definition*, and `grep -I` skips the binary files that could still hold CRLF. Measured on a fresh clone of this repo:
+Every text file is normalised to LF by that checkout *by definition*, because this repo's `.gitattributes` carries **no `-text` exception anywhere** — so nothing text-like escapes normalisation and there is nothing left for the grep to find. Measured on a fresh clone of this repo:
 ```
 CI grep on a fresh checkout: finds nothing (as it always will)
 index EOL states present:   i/lf i/none
@@ -76,6 +76,8 @@ committed blobs containing CRLF: 0 of 28
 
 Worth noting what a correct version would have caught right now: `git ls-files --eol` reports `CHANGELOG.md` as `i/lf w/crlf` — index clean, working tree CRLF, written by Python's `write_text` on Windows. Harmless for markdown, invisible to the current check, and precisely the state a real guard should be able to describe.
 **Fix path:** Check the index, which is what a clone actually receives, rather than a working tree that has already been normalised: fail on any `i/crlf` in `git ls-files --eol`. That can fire, and it tests the thing that matters.
+
+> **Correction, added by the next round's audit (F-601).** An earlier draft of this finding blamed `grep -I` skipping binary files. That is wrong, and the next round measured it: a path marked `-text` holding CRLF **is** caught by the old working-tree grep. The real reason the old check cannot fire *here* is the one now stated above — `text=auto` with no `-text` exception. The old grep is therefore not worthless, which is why the fix **kept it underneath** the index check rather than replacing it: the two catch overlapping but not identical sets.
 
 ---
 
