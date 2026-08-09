@@ -413,7 +413,14 @@ for node in ast.walk(tree):
     if not isinstance(node, ast.Call):
         continue
     fn = node.func
-    if not (isinstance(fn, ast.Attribute) and fn.attr == "run"
+    # ANY subprocess entry point, not `run` alone. Matching only `run` made
+    # this guard narrower than its own name: subprocess.check_output(["git",
+    # ...]) and Popen(["git", ...]) both sailed through, and check_output is
+    # the natural choice for exactly the read-only queries this file makes --
+    # so the most likely next call site was the one that evaded the check, and
+    # it raises FileNotFoundError identically. The property is "spawns git",
+    # not "calls subprocess.run".
+    if not (isinstance(fn, ast.Attribute)
             and isinstance(fn.value, ast.Name) and fn.value.id == "subprocess"):
         continue
     if not node.args or not isinstance(node.args[0], ast.List) or not node.args[0].elts:
@@ -421,7 +428,7 @@ for node in ast.walk(tree):
     head = node.args[0].elts[0]
     if (isinstance(head, ast.Constant) and head.value == "git"
             and node.lineno not in inside):
-        unguarded.append(f"line {node.lineno}")
+        unguarded.append(f"line {node.lineno} (subprocess.{fn.attr})")
 check("git is spawned only through git_run(), which survives git being absent",
       guard is not None and not unguarded,
       f"guard_found={guard is not None} unguarded={unguarded}")

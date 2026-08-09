@@ -56,7 +56,7 @@ should be a rename of this heading, not an archaeology exercise.
 ### Notes
 - **The suite no longer requires git.** Nothing about this skill does —
   `install.py` is pure Python, the shell scripts want curl and python3 — but
-  `tests/test_install.py` spawned git at six call sites without a guard, so on
+  `tests/test_install.py` spawned git at eight call sites without a guard, so on
   a machine without it the suite died with a `FileNotFoundError` traceback
   instead of skipping. One `git_run()` chokepoint now catches it, and an AST
   check asserts nothing spawns git any other way. Fixing that exposed nine

@@ -76,8 +76,22 @@ jobs:
 
       - name: no CRLF in tracked text files
         run: |
+          # Check the INDEX, not the working tree. .gitattributes is
+          # `* text=auto eol=lf`, so a fresh checkout normalises every text
+          # file to LF before this step runs and `grep -I` skips the binary
+          # ones that could still hold CRLF -- the old working-tree grep could
+          # not fail, whatever was committed. `git ls-files --eol` reports what
+          # is actually stored, which is what a clone receives.
+          bad=$(git ls-files --eol | awk '$1 == "i/crlf" { print $NF }')
+          if [ -n "$bad" ]; then
+            echo "CRLF stored in the index for:"; echo "$bad"
+            echo "fix: git add --renormalize ."; exit 1
+          fi
+          echo "index is LF-clean ($(git ls-files | wc -l) tracked files)"
+          # Belt and braces: the working tree too, for anything generated
+          # during the run rather than checked out.
           if grep -rlIU $'\r' --exclude-dir=.git . ; then
-            echo "CRLF found — .gitattributes should pin the tree to LF"; exit 1
+            echo "CRLF found in the working tree"; exit 1
           fi
           echo "all LF"
 
