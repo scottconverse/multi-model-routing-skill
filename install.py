@@ -30,6 +30,7 @@ PAYLOAD = [
     "SKILL.md",
     "README.md",
     "LICENSE",
+    "install.py",
     "scripts/call_local.sh",
     "tests/test_call_local.py",
     "references/codex.md",
@@ -37,6 +38,11 @@ PAYLOAD = [
     "references/local-backends.md",
     "references/local-notes.example.md",
 ]
+
+# Directories that mark a working copy under version control. Uninstalling one
+# of these would take the history with it, and the documented Claude Code
+# install IS the git checkout, so the SKILL.md guard alone does not catch it.
+VCS_MARKERS = (".git", ".hg", ".svn")
 
 TARGETS = {
     "claude": pathlib.Path.home() / ".claude" / "skills",
@@ -83,6 +89,11 @@ def install(dest_root, dry_run=False):
     return dest, actions
 
 
+# Records whether each uninstall target was actually removed, so the closing
+# message can't claim "Uninstalled" after refusing to touch anything.
+REMOVED = []
+
+
 def uninstall(dest_root, dry_run=False):
     """Remove the installed skill, preserving the user's local-notes.md.
 
@@ -92,15 +103,43 @@ def uninstall(dest_root, dry_run=False):
     dest = dest_root / SKILL_NAME
     actions = []
     if not dest.exists():
+        REMOVED.append(False)
         return dest, ["  not installed here — nothing to do"]
 
     if not (dest / "SKILL.md").is_file():
+        REMOVED.append(False)
         return dest, ["  REFUSED: no SKILL.md here, so this isn't the skill. "
                       "Nothing deleted."]
 
+    # The documented personal install is a git clone, so it has BOTH a SKILL.md
+    # and a .git. Deleting it would take unpushed history with it — on POSIX
+    # silently, on Windows by dying partway through on git's read-only objects
+    # and leaving a half-removed tree. Refuse, and say why.
+    found_vcs = next((m for m in VCS_MARKERS if (dest / m).exists()), None)
+    if found_vcs:
+        REMOVED.append(False)
+        return dest, [
+            f"  REFUSED: {dest}",
+            f"  is a version-controlled working copy ({found_vcs}/ is present).",
+            "  Removing it would delete your repository history along with the",
+            "  skill, including any commits you have not pushed.",
+            "",
+            "  Nothing was deleted. If you meant to remove it, do that with git",
+            "  — or delete the directory yourself once you're sure the history",
+            "  is pushed or unwanted.",
+        ]
+
     notes = dest / "references" / "local-notes.md"
     if notes.is_file():
+        # Never overwrite an existing backup: install -> uninstall -> install ->
+        # uninstall would otherwise put the freshly templated notes on top of
+        # the backup holding every machine fact learned so far, which is data
+        # loss inside the feature meant to prevent it.
         keep = dest_root / f"{SKILL_NAME}.local-notes.backup.md"
+        n = 2
+        while keep.exists():
+            keep = dest_root / f"{SKILL_NAME}.local-notes.backup.{n}.md"
+            n += 1
         actions.append(f"  {'would preserve' if dry_run else 'preserved'} your notes -> {keep}")
         if not dry_run:
             shutil.copy2(notes, keep)
@@ -110,6 +149,7 @@ def uninstall(dest_root, dry_run=False):
     actions.append(f"  {'would remove' if dry_run else 'removed'}: {dest}")
     if not dry_run:
         shutil.rmtree(dest)
+    REMOVED.append(True)
     return dest, actions
 
 
@@ -147,10 +187,13 @@ def main():
     if args.list:
         print("\n(--list: nothing was changed)")
     elif args.uninstall:
-        print("\nUninstalled. Nothing else was installed anywhere — no config "
-              "edits, no services, no registry entries.")
-        print("Any MCP servers you registered are separate and stay put; remove "
-              "them with your agent's own tooling if you want them gone.")
+        if any(REMOVED):
+            print("\nUninstalled. Nothing else was installed anywhere — no config "
+                  "edits, no services, no registry entries.")
+            print("Any MCP servers you registered are separate and stay put; remove "
+                  "them with your agent's own tooling if you want them gone.")
+        else:
+            print("\nNothing was removed. See the reason above each target.")
     else:
         print("\nDone. The folder name must stay 'multi-model-routing' — that's "
               "what SKILL.md's name: field expects.")
