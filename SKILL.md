@@ -122,6 +122,13 @@ back to OpenAI-format `/v1/chat/completions` if that 404s (older builds).
 It prints the reply on stdout and a `[receipt]` token-usage line on stderr —
 keep that receipt; it backs any claim that the backend did work.
 
+**Read `references/local-backends.md`** for what these backends verifiably do:
+tool support, vision, embeddings, prompt caching, and the RAM rules. Two things
+worth knowing up front — **tool support is a property of the model, not the
+server** (a coder-tuned model may have no tool training at all), and
+**embeddings are nearly free** and excellent for deduping or clustering a batch
+before you spend model calls on it.
+
 - Ollama base URL: `http://localhost:11434`. List installed models:
   `GET /api/tags` or `ollama list`. Pull new: `ollama pull <model>` (see
   model choice rules below first).
