@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>multi-model-routing — stop spending premium AI on grunt work</title>
+<meta name="description" content="A Claude Code / Cowork skill that routes batch and mechanical work to the free LLMs already running on your machine (Ollama, LM Studio), then Codex, then Claude — in that cost and privacy order. Local output never ships unreviewed.">
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1d2130;
+    --text: #d7dae2; --muted: #8b90a0; --accent: #4ecf8a;
+    --red: #e0645f; --amber: #d9a441; --border: #2a2f40;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 17px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre { font-family: var(--mono); font-size: 0.88em; }
+  code { background: var(--panel2); padding: 2px 6px; border-radius: 4px; }
+  pre {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 18px; overflow-x: auto; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  header { padding: 72px 0 48px; text-align: center; }
+  .badge {
+    display: inline-block; font-family: var(--mono); font-size: 13px;
+    color: var(--accent); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 14px; margin-bottom: 24px;
+  }
+  h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.15; letter-spacing: -0.5px; }
+  h1 .free { color: var(--accent); } h1 .paid { color: var(--amber); }
+  .sub { color: var(--muted); font-size: clamp(17px, 2.4vw, 20px); max-width: 660px; margin: 18px auto 0; }
+  .cta { margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 11px 22px; border-radius: 8px;
+    font-weight: 600; font-size: 15px;
+  }
+  .btn-primary { background: var(--accent); color: #0c1310; }
+  .btn-primary:hover { text-decoration: none; filter: brightness(1.1); }
+  .btn-ghost { border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { text-decoration: none; border-color: var(--muted); }
+
+  section { padding: 44px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: 25px; margin-bottom: 18px; letter-spacing: -0.3px; }
+  h3 { font-size: 18px; margin: 22px 0 8px; }
+  p + p { margin-top: 12px; }
+  .muted { color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 22px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { color: var(--muted); font-size: 15px; line-height: 1.55; }
+
+  figure { margin: 28px 0 8px; text-align: center; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 10px; }
+  svg { max-width: 100%; height: auto; }
+
+  .tiers { margin-top: 20px; }
+  .tier {
+    display: flex; gap: 16px; align-items: baseline;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .tier:last-child { border-bottom: 0; }
+  .tier b { font-family: var(--mono); color: var(--amber); white-space: nowrap; font-size: 14px; }
+  .tier span { color: var(--muted); font-size: 15.5px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 14px; }
+  td.num { font-family: var(--mono); white-space: nowrap; }
+  .good { color: var(--accent); } .bad { color: var(--red); }
+
+  .table-scroll { overflow-x: auto; }
+
+  footer { border-top: 1px solid var(--border); padding: 32px 0 48px; color: var(--muted); font-size: 14.5px; text-align: center; }
+  footer a { color: var(--muted); text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="badge">v0.1.0 · MIT · bash + curl + python3 · no pip installs</div>
+  <h1>You're paying for AI by the token.<br><span class="free">Your PC already has some for free.</span></h1>
+  <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the local models already installed on your machine — then Codex, then Claude — in that cost and privacy order.</p>
+  <div class="cta">
+    <a class="btn btn-primary" href="https://github.com/scottconverse/multi-model-routing-skill">View on GitHub</a>
+    <a class="btn btn-ghost" href="./MANUAL.md">Read the manual</a>
+  </div>
+</header>
+
+<section class="wrap">
+  <h2>The problem, in plain English</h2>
+  <p>Ask a coding agent to summarize 200 log files and it will happily do all 200 itself, at premium rates, using a model built for architecture and security review. The work is mechanical — read a file, write two sentences — but every one of those calls bills you like it was hard.</p>
+  <p>Meanwhile there's a good chance you already have <strong>Ollama or LM Studio installed</strong>, holding models that run free, offline, and unmetered, doing nothing.</p>
+  <p>This skill closes that gap. It teaches the agent to recognize bulk work and route it down to the cheapest backend that can actually do it — with one hard rule attached: <strong>local output is raw material, never a finished answer.</strong> Something better always reviews it before it counts.</p>
+</section>
+
+<section class="wrap">
+  <h2>The ladder</h2>
+  <figure>
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Routing ladder: local models first, then Codex, then Haiku, then premium Claude, with cost rising and privacy falling">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#8b90a0"/>
+        </marker>
+      </defs>
+      <text x="20" y="26" fill="#8b90a0" font-size="13" font-family="ui-monospace,Consolas,monospace">cost →</text>
+      <line x1="70" y1="21" x2="700" y2="21" stroke="#2a2f40" stroke-width="1" marker-end="url(#arr)"/>
+
+      <rect x="20" y="45" width="150" height="86" rx="9" fill="#171a23" stroke="#4ecf8a" stroke-width="1.5"/>
+      <text x="95" y="70" text-anchor="middle" fill="#4ecf8a" font-size="14" font-weight="600" font-family="system-ui">Local</text>
+      <text x="95" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">Ollama · LM Studio</text>
+      <text x="95" y="109" text-anchor="middle" fill="#d7dae2" font-size="12.5" font-family="ui-monospace,Consolas,monospace">free · private</text>
+
+      <rect x="196" y="45" width="150" height="86" rx="9" fill="#171a23" stroke="#2a2f40"/>
+      <text x="271" y="70" text-anchor="middle" fill="#d9a441" font-size="14" font-weight="600" font-family="system-ui">Codex</text>
+      <text x="271" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">OpenAI models</text>
+      <text x="271" y="109" text-anchor="middle" fill="#8b90a0" font-size="12.5" font-family="ui-monospace,Consolas,monospace">leaves machine</text>
+
+      <rect x="372" y="45" width="150" height="86" rx="9" fill="#171a23" stroke="#2a2f40"/>
+      <text x="447" y="70" text-anchor="middle" fill="#d9a441" font-size="14" font-weight="600" font-family="system-ui">Haiku</text>
+      <text x="447" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">bulk, on Claude</text>
+      <text x="447" y="109" text-anchor="middle" fill="#8b90a0" font-size="12.5" font-family="ui-monospace,Consolas,monospace">cheap tier</text>
+
+      <rect x="548" y="45" width="152" height="86" rx="9" fill="#171a23" stroke="#e0645f" stroke-width="1.5"/>
+      <text x="624" y="70" text-anchor="middle" fill="#e0645f" font-size="14" font-weight="600" font-family="system-ui">Premium Claude</text>
+      <text x="624" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">reasoning · review</text>
+      <text x="624" y="109" text-anchor="middle" fill="#8b90a0" font-size="12.5" font-family="ui-monospace,Consolas,monospace">reserve it</text>
+
+      <line x1="170" y1="88" x2="196" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="346" y1="88" x2="372" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="522" y1="88" x2="548" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <text x="20" y="170" fill="#8b90a0" font-size="13" font-family="system-ui">Escalate only when the tier below fails review twice — never loop in place.</text>
+      <line x1="20" y1="192" x2="700" y2="192" stroke="#2a2f40" stroke-dasharray="4 4"/>
+      <text x="20" y="216" fill="#4ecf8a" font-size="13.5" font-family="system-ui" font-weight="600">Privacy runs the other way:</text>
+      <text x="210" y="216" fill="#8b90a0" font-size="13.5" font-family="system-ui">local keeps everything on the machine. Codex ships it to OpenAI.</text>
+      <text x="20" y="238" fill="#8b90a0" font-size="13.5" font-family="system-ui">Sensitive material goes local or premium — never to a third-party cloud without your say-so.</text>
+    </svg>
+    <figcaption>Cost rises left to right. Privacy falls. Work starts at the cheapest tier that can do it.</figcaption>
+  </figure>
+</section>
+
+<section class="wrap">
+  <h2>Why "never ships unreviewed" isn't boilerplate</h2>
+  <p>That rule sounds like standard caution. It isn't — it's load-bearing, and we measured it.</p>
+  <p>On 2026-08-08 the same adversarial code audit was run through three backends, then every finding was checked by hand against the source:</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Backend</th><th>Cost</th><th>Findings</th><th>Actually real</th><th>Time</th></tr></thead>
+    <tbody>
+      <tr><td>Local 7B coder</td><td class="num good">$0</td><td class="num">10</td><td class="num bad">~1</td><td class="num">72 s</td></tr>
+      <tr><td>Codex</td><td class="num">25,122 tok</td><td class="num">6</td><td class="num good">5</td><td class="num">34 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:18px">The local model didn't just miss things — it <em>invented</em> them. Two of its ten findings were flatly contradicted by the code sitting in its own prompt: it reported a missing usage message in a script that prints one, and an unhandled error case that's handled two lines later.</p>
+  <p>That's the whole argument for the ladder. A small local model is genuinely useful for bulk mechanical passes and genuinely unreliable at judgment. Route accordingly — and check its work.</p>
+</section>
+
+<section class="wrap">
+  <h2>Quick start</h2>
+  <h3>Install (Claude Code / Cowork, all projects)</h3>
+  <pre><code>git clone https://github.com/scottconverse/multi-model-routing-skill.git \
+  ~/.claude/skills/multi-model-routing
+
+cd ~/.claude/skills/multi-model-routing
+cp references/local-notes.example.md references/local-notes.md</code></pre>
+  <p class="muted">The folder name must be <code>multi-model-routing</code> — that's what <code>SKILL.md</code>'s <code>name:</code> field expects, regardless of what the repo is called. The agent picks it up automatically from there; there's nothing to enable.</p>
+  <h3>Then just ask for bulk work</h3>
+  <p class="muted">"Summarize every log in this folder." "Tag these 300 rows." "Draft docstrings for all of these." The skill triggers on the shape of the request — a folder, a count, "all of them" — and routes it before reading a single file.</p>
+  <h3>You need less than you'd think</h3>
+  <p class="muted">Nothing here requires all four backends. It works with whatever subset you actually have, and a missing one is a one-line note, never a blocker. The bundled script needs only <code>bash</code>, <code>curl</code> and <code>python3</code> — standard library, no <code>pip install</code>.</p>
+</section>
+
+<section class="wrap">
+  <h2>What gets routed where</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="color:var(--accent)">Goes local first</h3>
+      <p>Log and JSON triage · file summarization sweeps · test-data generation · format conversion · classification and tagging · first-draft docstrings · commit-message drafts · TODO sweeps. High volume, low stakes, mechanically checkable.</p>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--red)">Never routed down</h3>
+      <p>Architecture decisions · security-sensitive code · final audit verdicts · anything shipping unreviewed · judgment calls you'll rely on. These stay on premium Claude, full stop.</p>
+    </div>
+  </div>
+  <div class="tiers">
+    <div class="tier"><b>receipts</b><span>Every claim that a backend did work is backed by the actual reply or its token-usage line. No "I offloaded that" without evidence.</span></div>
+    <div class="tier"><b>lazy probing</b><span>Backends are probed when they're about to be used, not in a sweep on load — and the result is cached for the session.</span></div>
+    <div class="tier"><b>escalate, don't loop</b><span>If a tier fails review twice on the same work, it moves up one. It never burns a third attempt at the same level.</span></div>
+    <div class="tier"><b>bounded calls</b><span>Local calls are capped at 1–2 at a time, time out rather than hanging forever, and treat an empty reply as a failure — not as a successful empty answer.</span></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Honest limits</h2>
+  <p><strong>It does not enforce "local."</strong> The bundled script posts to whatever base URL it's given. The name says local; nothing in the code makes it so. Keep it pointed at localhost for private material — that's the caller's job, and the skill says so plainly rather than implying a guarantee it can't keep.</p>
+  <p><strong>A cloud sandbox is not your machine.</strong> If the agent runs in a hosted container, its <code>localhost</code> is the container's, not yours. The skill has an explicit guard for this: if it starts a server and finds an empty model list while you insist you have models installed, it stops and tells you instead of "fixing" it by downloading gigabytes.</p>
+  <p><strong>Local models are slow to start.</strong> First call to a cold model includes load time — 10–15 s is normal for a 5–9 GB model. Warm calls are much faster. Budget for it on the first item of a sweep, not on every one.</p>
+</section>
+
+<footer class="wrap">
+  <p>MIT licensed · built for <a href="https://claude.com/claude-code">Claude Code</a> and Cowork, usable by any agent that can read a markdown file</p>
+  <p style="margin-top:10px"><a href="https://github.com/scottconverse/multi-model-routing-skill">GitHub</a> · <a href="./MANUAL.md">Manual</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/SKILL.md">SKILL.md</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/CHANGELOG.md">Changelog</a></p>
+</footer>
+
+</body>
+</html>

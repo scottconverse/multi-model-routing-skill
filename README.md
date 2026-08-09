@@ -1,5 +1,9 @@
 # multi-model-routing
 
+**[Website](https://scottconverse.github.io/multi-model-routing-skill/) ·
+[Manual](./docs/MANUAL.md) · [SKILL.md](./SKILL.md) ·
+[Changelog](./CHANGELOG.md)**
+
 A [Claude Code](https://claude.com/claude-code) / Claude Cowork skill that
 routes batch and mechanical work across whatever model backends are actually
 available on the machine — local LLMs (Ollama, LM Studio), the Codex CLI
@@ -62,6 +66,10 @@ references/local-notes.example.md
 tests/test_call_local.py    offline smoke test for call_local.sh (spins up
                              mock HTTP servers, no real Ollama/LM Studio
                              needed) — run with `python3 tests/test_call_local.py`
+docs/MANUAL.md              the user manual — install, routing rule, every
+                             backend, troubleshooting, honest limits, FAQ
+docs/index.html             the landing page, published via GitHub Pages
+CHANGELOG.md                what changed, and why
 ```
 
 ## Requirements
