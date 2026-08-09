@@ -7,6 +7,38 @@ All notable changes to multi-model-routing are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- **`CALL_LOCAL_DIALECT=auto|anthropic|openai`.** `auto` (unchanged default)
+  probes Anthropic then falls back on 404/405/501 — right for a local server,
+  which either serves a dialect or doesn't. **Wrong for a gateway**, where the
+  dialect depends on the *model*: OpenCode Zen serves `/v1/messages` only for
+  paid Claude models and answers 401/400 for free ones, while
+  `/v1/chat/completions` serves them fine. Widening the fallback to 400 would
+  have traded a working guard for convenience — a 400 is usually a genuine bad
+  request and retrying would hide it — so the caller states the dialect
+  instead. Verified against the live gateway **with no API key**:
+  `deepseek-v4-flash-free` returned in 6.5 s, `[receipt] in=91 out=16`.
+- **OpenCode Zen probed and documented**: 61 models advertised, 8 free,
+  anonymous inference returning HTTP 200 without a key. Notably
+  `deepseek-v4-flash-free` scores 152.53 on Epoch's data — above `gpt-5.4-mini`
+  (148.91), a paid tier this skill routes to. Not yet added to the routing
+  ladder: free-tier access is **not private** (prompts reach OpenCode and its
+  upstream provider) and has no controllable quota, so that placement is a
+  judgment call left open deliberately.
+
+### Fixed
+- **The wrong timeout knob was named when a connection never opened.** curl
+  returns exit 28 for both a connect timeout and a whole-call timeout, and the
+  handler assumed the latter — so a blackholed host failed after 5 s but
+  reported "timed out after 300s … raise `CALL_LOCAL_TIMEOUT`". Wrong number,
+  and it pointed at a limit that was never the problem. `do_post` now carries
+  `time_total` and the message distinguishes them.
+
+  Measured failure times for an absent backend, all fast and all loud:
+  unresolvable host **0.65 s**, nothing listening **2.6 s**, blackholed
+  **5.4 s**, benchmark fetch offline with no cache **10 s**. With a cache it
+  degrades to it rather than failing.
+
+### Added
 - **`scripts/benchmarks.sh` — the freshness mechanism.** A number pasted into a
   document is a fossil the moment a model ships, so the skill no longer carries
   rankings; it fetches them. The script pulls Epoch AI's open data

@@ -103,6 +103,23 @@ Every install ships its own `install.py`, so you can uninstall from the install
 itself. Any MCP servers you registered live in the agent's own config and are
 unaffected.
 
+## Model choice is looked up, not guessed
+
+```bash
+scripts/benchmarks.sh --open        # best open-weights models
+scripts/benchmarks.sh --measure coding
+```
+
+Rankings come from [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks) —
+a non-profit publishing under **CC-BY 4.0**, no account and no API key. The
+script caches and **refetches when the data is over a week old**, so the skill
+never carries rankings that rot.
+
+It scores open-weights models on the same scale as proprietary ones, which is
+the comparison a routing skill needs. ⚠️ But **open weights means downloadable,
+not runnable** — the top open model is 2.8T parameters and needs 8× H200. Check
+size against free RAM before treating a high score as a local option.
+
 ## Large prompts
 
 `scripts/call_local.sh` takes the prompt three ways — a literal argument, `-`
@@ -111,6 +128,10 @@ for stdin, or `file:PATH`:
 ```bash
 cat big.log | scripts/call_local.sh http://localhost:11434 qwen2.5:7b - 2048
 ```
+
+`CALL_LOCAL_DIALECT=auto|anthropic|openai` picks the API dialect. `auto` probes
+Anthropic then falls back — right for a local server, wrong for a gateway where
+the dialect depends on the model, so state it when you know.
 
 Use `-` or `file:` for real inputs. A literal prompt must fit in the OS
 argument limit, and a batch input won't: it fails loudly (`Argument list too

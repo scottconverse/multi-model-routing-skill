@@ -334,6 +334,27 @@ the script defaults to 1024.
 A server that accepts the connection and then stalls will not hang the script
 forever. Raise `CALL_LOCAL_TIMEOUT` for genuinely long generations.
 
+### Picking the API dialect
+
+`CALL_LOCAL_DIALECT` is `auto` by default: try Anthropic `/v1/messages`, fall
+back to OpenAI `/v1/chat/completions` if the server answers 404, 405 or 501.
+That's right for a local server, which either serves a dialect or doesn't.
+
+**It's wrong for a gateway**, where the dialect depends on the *model*.
+OpenCode Zen serves `/v1/messages` only for paid Claude models and answers
+401/400 for everything else, while its free models work fine on
+`/v1/chat/completions`. Those codes deliberately don't trigger a fallback — a
+400 is usually a genuine bad request and retrying would hide it. So state the
+dialect when you know it:
+
+```bash
+CALL_LOCAL_DIALECT=openai call_local.sh https://opencode.ai/zen \
+  deepseek-v4-flash-free "Reply with exactly: OK" 200
+```
+
+Values: `auto` (default), `anthropic`, `openai`. Anything else is rejected
+rather than guessed at.
+
 ### Concurrency
 
 **Keep local calls to 1–2 at a time.** Local servers serialize or thrash under
@@ -423,48 +444,47 @@ context on your hardware.
 ## 9. Grounding model choice in benchmarks
 
 Which model belongs in which tier is a claim about capability, and a number
-typed into prose six months ago is a fossil, not evidence. The reference of
-record is [Artificial Analysis](https://artificialanalysis.ai/).
-
-It matters more here than in most tools for one reason: **it scores
-open-weights models on the same indices as proprietary ones.** That puts the
-models on your machine and the models behind an API on a single scale, so "is
-the local model good enough, or does this need a tier up?" becomes a comparison
-instead of a judgment call.
-
-Three indices — **Intelligence** (general), **Coding Agent** (the one that
-matters most here), **Agentic** (tool use, planning, multi-step loops). Topping
-one does not imply topping another; match the index to the job.
-
-### Setting it up
-
-There's a free official API. Get a key from
-[artificialanalysis.ai/data-api](https://artificialanalysis.ai/data-api),
-then:
+typed into prose six months ago is a fossil, not evidence. So the skill doesn't
+store rankings — **it fetches them**:
 
 ```bash
-export AA_API_KEY=...      # never commit this
-curl -H "x-api-key: $AA_API_KEY" \
-  https://artificialanalysis.ai/api/v2/language/models/free
+scripts/benchmarks.sh --open              # best open-weights models
+scripts/benchmarks.sh --measure coding    # code work specifically
+scripts/benchmarks.sh --model deepseek    # one family
+scripts/benchmarks.sh --list              # which measures are available
 ```
 
-Free tier is **100 requests / 24h** and returns model identity, the headline
-indices, median performance and token pricing. Ready-made clients exist if you
-prefer not to curl: `davidhariri/artificial-analysis-mcp` (MCP server) and
-`aneym/artificial-analysis-cli` — both MIT, both third-party and unaudited.
+**Source: [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks)** — a
+non-profit research institute publishing under **CC-BY 4.0**. No account, no
+API key, no redistribution restriction. The script caches the data and
+**refetches whenever the cache is over a week old** (`BENCHMARKS_MAX_AGE_DAYS`),
+falls back to the cache when offline and says so, and prints the required
+attribution every run.
 
-### ⚠️ The licence line
+It matters here for one reason: **it scores open-weights models on the same
+scale as proprietary ones**, with a `Model accessibility` column marking which
+is which. So "is the local model good enough, or does this need a tier up?"
+becomes a comparison instead of a judgment call.
 
-The **free tier is internal use only, no redistribution**, and attribution is
-required on every tier. Using the indices to decide routing is fine. Publishing
-a table of API-sourced scores into a public repo is redistribution and is not
-permitted on free — keep pulled numbers in your git-ignored `local-notes.md` or
-in the session. Redistribution needs a Pro or Commercial tier.
+### ⚠️ Open weights means downloadable, not runnable
 
-Full method, fallbacks and rules: [`references/benchmarks.md`](../references/benchmarks.md).
+The top open model on that list is 2.8 trillion parameters and needs 8× H200 to
+serve. Reading the `--open` list top-down as a shortlist of things you can host
+is the wrong inference. Three separate questions:
+
+1. **Is it good?** — the benchmark data
+2. **Can I run it?** — size against free RAM (a 17.99 GB model failed to load
+   here at 17.5 GB free)
+3. **Can I reach it another way?** — API providers, or Antigravity's free
+   `gpt-oss-120b`
+
+A big open model reached over someone else's API is a *licensing* win, not a
+privacy one — the privacy rule applies to it exactly as it does to Codex.
 
 **Benchmarks rank; they don't decide.** A measured result on your machine beats
-a leaderboard — see the next section for why.
+a leaderboard — see the next section. Full method, the gated Artificial
+Analysis alternative, and fallbacks:
+[`references/benchmarks.md`](../references/benchmarks.md).
 
 ## 10. What we measured
 
@@ -536,8 +556,13 @@ prompt, so it shouldn't be looped carelessly.
 **"no server reachable at ..."** — nothing is listening. Start Ollama, or run
 `lms server start`. Fails in about 5 seconds rather than hanging.
 
-**"timed out after 300s"** — the server accepted the connection then stalled,
-or the generation is genuinely long. Raise `CALL_LOCAL_TIMEOUT`.
+**"timed out after Ns"** — the server accepted the connection then stalled, or
+the generation is genuinely long. Raise `CALL_LOCAL_TIMEOUT`.
+
+**"could not connect within Ns"** — different problem, different knob. The
+connection never opened: wrong host or port, firewall, or the server isn't
+running. Raising `CALL_LOCAL_TIMEOUT` will not help; check the URL first, then
+`CALL_LOCAL_CONNECT_TIMEOUT` if the host is just slow to accept.
 
 **Exit 2, empty reply** — a reasoning model spent its budget on hidden tokens.
 Raise `max_tokens` to at least a few hundred; try 1024+.
