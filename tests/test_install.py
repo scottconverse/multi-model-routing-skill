@@ -185,7 +185,6 @@ sys.path.insert(0, str(ROOT))
 import install as installer  # noqa: E402
 
 SHIPPED = set(installer.PAYLOAD)
-EXCLUDED = set(getattr(installer, "NOT_SHIPPED", []))
 
 # No extension filter: the guard's set must be the SAME set prune operates on,
 # or the two drift apart and the guard stops meaning anything. Every tracked
@@ -201,12 +200,40 @@ tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
 untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
                            cwd=ROOT, capture_output=True, text=True,
                            timeout=60).stdout.split()
-unaccounted = sorted((set(tracked) | set(untracked)) - SHIPPED - EXCLUDED)
+# Use install.py's own matcher, so the guard and the exclusion list
+# cannot drift apart about what "excluded" means.
+unaccounted = sorted(f for f in (set(tracked) | set(untracked))
+                     if f not in SHIPPED and not installer.is_excluded(f))
 check("every tracked file is shipped or explicitly excluded", not unaccounted,
       f"add to PAYLOAD or NOT_SHIPPED: {unaccounted}")
 
-overlap = SHIPPED & EXCLUDED
-check("no file is both shipped and excluded", not overlap, f"{sorted(overlap)}")
+overlap = sorted(f for f in SHIPPED if installer.is_excluded(f))
+check("no file is both shipped and excluded", not overlap, f"{overlap}")
+
+# Exclusions must be patterns, not names. A literal filename means the next
+# file added beside it fails this guard and forces an unrelated edit -- the
+# by-name habit that has already cost this repo three times.
+literal_files = [e for e in installer.NOT_SHIPPED
+                 if not e.endswith("/") and "/" in e and e.count("/") >= 2]
+check("no exclusion names a file inside a nested directory", not literal_files,
+      f"prefer a trailing-slash directory entry: {literal_files}")
+
+# Prove the directory form actually holds when a second file lands there --
+# the failure mode a literal filename entry would have had.
+audits = ROOT / "docs" / "audits"
+if audits.is_dir():
+    probe = audits / "audit-lite-probe-9999-12-31.md"
+    probe.write_text("probe\n", encoding="utf-8")
+    try:
+        loose = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"], cwd=ROOT,
+            capture_output=True, text=True, timeout=60).stdout.split()
+        leftover = [f for f in loose
+                    if f not in SHIPPED and not installer.is_excluded(f)]
+        check("a second file in docs/audits/ does not break the guard",
+              not leftover, f"{leftover}")
+    finally:
+        probe.unlink()
 
 missing = sorted(rel for rel in installer.PAYLOAD if not (ROOT / rel).is_file())
 check("every PAYLOAD entry exists in the repo", not missing, f"{missing}")

@@ -17,13 +17,15 @@
 # Usage:
 #   benchmarks.sh                      # top 25 by the headline composite
 #   benchmarks.sh --open               # open-weights models only
-#   benchmarks.sh --measure coding     # coding benchmarks instead
+#   benchmarks.sh --measure coding     # a specific benchmark (see --list)
 #   benchmarks.sh --model deepseek     # everything matching a name
+#   benchmarks.sh --limit 10           # how many rows (positive integer)
 #   benchmarks.sh --refresh            # force a refetch
 #   benchmarks.sh --list               # which measures are available
 #
-# Cache: $CALL_LOCAL_CACHE or ~/.cache/multi-model-routing/benchmarks
+# Cache: BENCHMARKS_CACHE or ~/.cache/multi-model-routing/benchmarks
 # Staleness: BENCHMARKS_MAX_AGE_DAYS (default 7)
+# --- end usage ---
 
 set -euo pipefail
 
@@ -57,7 +59,14 @@ while [ $# -gt 0 ]; do
         --open)    OPEN_ONLY=1; shift ;;
         --refresh) REFRESH=1; shift ;;
         --list)    LIST=1; shift ;;
-        -h|--help) sed -n '5,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        # Delimited by markers, never by line numbers: a hardcoded range broke
+        # silently the moment the header grew, spilling `set -euo pipefail`
+        # into the help text.
+        -h|--help)
+            sed -n '/^# Usage:/,/^# --- end usage ---/p' "$0" \
+              | grep -v '^# --- end usage ---' \
+              | sed 's/^# \{0,1\}//'
+            exit 0 ;;
         *) echo "benchmarks.sh: unknown argument: $1" >&2; exit 1 ;;
     esac
 done

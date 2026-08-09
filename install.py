@@ -47,18 +47,39 @@ PAYLOAD = [
 # Tracked files deliberately NOT shipped, listed so the drift test can tell
 # "decided against" apart from "forgotten". These document the repo for people
 # working ON it; they are noise inside an install.
+# A trailing "/" excludes a whole directory. Prefer that to naming files:
+# listing a literal (worse, a DATED) filename means the next file added there
+# fails the drift guard and forces an unrelated edit here. That by-name habit
+# has already cost this repo three times -- the exec-bit guard, shellcheck, and
+# an audit report -- so exclusions are patterns now, not names.
 NOT_SHIPPED = [
     "CHANGELOG.md",                    # repo history, not skill behaviour
     "CONTRIBUTING.md",                 # for contributors, not users
     "docs/DISCUSSIONS_SEED.md",        # GitHub Discussions material
-    "docs/audits/audit-lite-multi-model-routing-2026-08-09.md",  # a record of
-                                       # review, not skill behaviour
+    "docs/audits/",                    # records of review, however many
     "docs/index.html",                 # the landing page, published via Pages
     "docs/.nojekyll",                  # Pages build hint
     ".gitignore",                      # repo hygiene; an install is not a repo
     ".gitattributes",                  # ditto -- LF pinning matters in the repo
-    ".github/workflows/test.yml",      # CI belongs to the repo, not an install
+    ".github/workflows/",              # CI belongs to the repo, not an install
 ]
+
+
+def is_excluded(rel_path):
+    """True if rel_path is covered by NOT_SHIPPED.
+
+    Exact match, or inside a directory entry (one ending in "/"). Shared with
+    the drift test so the guard and the exclusion list can never disagree about
+    what "excluded" means.
+    """
+    rel = rel_path.replace("\\", "/")
+    for entry in NOT_SHIPPED:
+        if entry.endswith("/"):
+            if rel.startswith(entry):
+                return True
+        elif rel == entry:
+            return True
+    return False
 
 # Directories that mark a working copy under version control. Uninstalling one
 # of these would take the history with it, and the documented Claude Code

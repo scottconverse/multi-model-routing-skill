@@ -8,6 +8,7 @@ because the 2026-08-09 audit found a defect on an untested path.
 Run: python3 tests/test_benchmarks.py
 """
 import os
+import re
 import pathlib
 import shutil
 import subprocess
@@ -143,9 +144,37 @@ check("--list names every supported measure",
       all(m in r.stdout for m in ("capabilities", "coding", "terminal",
                                   "aider", "agentic", "reasoning")), r.stdout[:250])
 
+# --help must be complete AND clean. The previous assertion checked only that
+# "--open" appeared, which was true while the output simultaneously leaked
+# `set -euo pipefail` and omitted --limit. A test named for more than it checks
+# turns an unverified area into an apparently verified one.
 r = run("--help", cache=CACHE)
-check("--help prints usage, not the file header verbatim",
-      r.returncode == 0 and "--open" in r.stdout, r.stdout[:200])
+check("--help exits 0", r.returncode == 0, r.stderr[:150])
+
+# Every flag the parser accepts, taken from the script itself rather than a
+# hand-kept list -- so a new flag cannot be added without appearing in help.
+script_src = (ROOT / "scripts" / "benchmarks.sh").read_text(encoding="utf-8")
+# Slice to the END of the while loop ("\ndone"), not to the first "esac":
+# the --limit branch contains a NESTED case/esac, so splitting on esac cut the
+# parser short and silently covered only the first three flags. Caught by
+# printing what the extraction actually found.
+parser = script_src.split("while [ $# -gt 0 ]", 1)[-1].split("\ndone", 1)[0]
+# Only the case labels, i.e. tokens followed by ) or | -- not flag names that
+# appear inside help text or comments within the loop.
+accepted = sorted({tok for tok in re.findall(r"(--[a-z-]+)\s*[)|]", parser)
+                   if tok not in ("--help",)})
+assert len(accepted) >= 6, f"flag extraction looks broken: {accepted}"
+missing_from_help = [f for f in accepted if f not in r.stdout]
+check("--help documents every flag the parser accepts", not missing_from_help,
+      f"accepted={accepted} missing={missing_from_help}")
+
+leaked = [tok for tok in ("set -euo", "esac", "shift 2", '"$0"', "exit 0")
+          if tok in r.stdout]
+check("--help leaks no shell syntax", not leaked, f"leaked: {leaked}")
+
+check("--help names the real cache variable",
+      "BENCHMARKS_CACHE" in r.stdout and "CALL_LOCAL_CACHE" not in r.stdout,
+      r.stdout[-200:])
 
 # --- a measure whose file is absent from the cache --------------------------
 r = run("--measure", "terminal", cache=CACHE)
