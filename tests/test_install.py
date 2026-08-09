@@ -236,23 +236,48 @@ else:
     # never a hand-kept list of names.
     scan = sorted(p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*.py")
                   if "__pycache__" not in p.parts)
-PRINTS = ("print(", "actions.append(", "sys.exit(", "return dest, [")
+# Every non-docstring string literal, found by parsing -- NOT a hand-kept list
+# of call patterns. The previous version scanned lines containing one of
+# ("print(", "actions.append(", "sys.exit(", "return dest, ["), which is the
+# by-name habit wearing different clothes: sys.stderr.write(), sys.stdout
+# .write(), raise SystemExit() and logging.*() all evaded it (measured). The
+# file scope was widened to every shipped .py without anyone asking whether the
+# PATTERN scope was right, and no later change touched the line.
+#
+# Docstrings are the deliberate exemption: they are documentation and never
+# reach a stream. Comments are invisible to the parser, so they are excluded
+# for free rather than by a startswith("#") that a trailing comment defeats.
+# Verified to produce no false positives across all four shipped .py files.
+def offending_literals(path):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    docs = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef,
+                             ast.ClassDef)) and node.body:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) \
+                    and isinstance(first.value.value, str):
+                docs.add(id(first.value))
+    out = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            continue
+        if id(node) in docs:
+            continue
+        try:
+            node.value.encode("cp437")
+        except UnicodeEncodeError as e:
+            out.append((node.lineno, e.object[e.start:e.end]))
+    return out
+
+
 bad = []
 for rel in scan:
     f = ROOT / rel
     if not f.is_file():
         continue
-    for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-        s = line.strip()
-        if s.startswith("#"):
-            continue                  # comments are never printed
-        if not any(tok in s for tok in PRINTS):
-            continue
-        try:
-            line.encode("cp437")
-        except UnicodeEncodeError as e:
-            bad.append(f"{rel}:{n} {e.object[e.start:e.end]!r}")
-check(f"printed strings are cp437-safe across all {len(scan)} shipped .py files",
+    bad += [f"{rel}:{n} {ch!r}" for n, ch in offending_literals(f)]
+check(f"string literals are cp437-safe across all {len(scan)} shipped .py files",
       not bad, "; ".join(bad[:4]))
 
 # ── payload drift guard ──────────────────────────────────────────────────────

@@ -63,6 +63,17 @@ should be a rename of this heading, not an archaeology exercise.
   vacuous pass is visible. Verified against a purpose-built repo whose index
   genuinely stores CRLF. The working-tree grep is kept underneath it: it does
   catch a `-text` path, so the two together are stronger than either.
+- **The cp437 guard checked four hardcoded call patterns, not "printed
+  strings".** It scanned lines containing one of
+  `("print(", "actions.append(", "sys.exit(", "return dest, [")`, so
+  `sys.stderr.write()`, `sys.stdout.write()`, `raise SystemExit()` and
+  `logging.*()` all evaded it. No live exposure — none of those forms is used
+  today — but `install.py` already uses `sys.exit("...")`, one keystroke from
+  the form that escaped. The guard's *file* scope had been widened to every
+  shipped `.py` without anyone asking whether the *pattern* scope was right,
+  and no later change touched the line. It now parses each file and checks
+  every non-docstring string literal; docstrings stay exempt and comments drop
+  out for free. 6/6 under perturbation, including the docstring exemption.
 - **The "git is spawned only through `git_run()`" guard matched
   `subprocess.run` alone**, so `check_output(["git", ...])` and
   `Popen(["git", ...])` sailed through — and `check_output` is the natural
