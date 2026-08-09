@@ -4,6 +4,60 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Kept current from here on. Reconstructing several commits' worth of changes at
+tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
+should be a rename of this heading, not an archaeology exercise.
+
+### Added
+- **`--limit N` and `--refresh` are documented.** Both were implemented and
+  validated but reached no reader — absent from `references/benchmarks.md`
+  (the file the skill tells the agent to load), `docs/MANUAL.md` and
+  `README.md`. `references/benchmarks.md` now carries a full flag table, and
+  the parser-derived flag list that already guarded `--help` guards both doc
+  surfaces, so a flag cannot ship undocumented again.
+- **WSL as a real Linux surface**, plus a CI Python matrix (3.11 and 3.13 on
+  Ubuntu and Windows). A test helper had used `shutil.rmtree(onexc=)`, which is
+  3.12+, and passed locally on 3.13 while dying on CI's 3.11.
+
+### Fixed
+- **The payload drift guard could not run where it ships.** Outside a checkout
+  `git ls-files` exits 128 with empty stdout; the return code was never
+  inspected, so "git cannot answer" became "nothing is unaccounted for" and
+  the guard printed `ok` in every installed copy — exactly where `tests/`
+  ships, for users to verify their own install. Correcting that exposed a
+  second mode: installed under a user's own project, git succeeds and
+  enumerates **their** repo, so the guard failed and named
+  `references/local-notes.md` — the file the installer had just created for
+  them on purpose. It now tests repository *identity*
+  (`git rev-parse --show-toplevel` against the test's own root) and skips with
+  a reason, naming each check that did not run.
+- **The test harness crashed on cp437, and only when a test failed.** Em
+  dashes sat in the failure branches of `test_install.py` and
+  `test_benchmarks.py`, so on cmd.exe a genuine failure surfaced as
+  `UnicodeEncodeError` instead of the name of the broken check. The rule was
+  already enforced for `install.py` — by a guard that read `install.py` **by
+  name**. It now enumerates `git ls-files '*.py'` with a directory-walk
+  fallback.
+- **A missing flag value answered in bash's voice, not the script's.**
+  `${2:?...}` produced `benchmarks.sh: line 45: 2: --measure needs a value` —
+  a positional parameter the user never typed, and a line number that drifts
+  with every edit above it. Now `benchmarks.sh: --measure needs a value`.
+- **`--help` was built from a hardcoded `sed -n '5,28p'`**, which broke the
+  moment the header grew: it spilled `set -euo pipefail` into the output and
+  omitted `--limit` entirely. Delimited by explicit markers now.
+- **`--help` documented `$CALL_LOCAL_CACHE`**, which the script never reads.
+  The real variable is `BENCHMARKS_CACHE`.
+- **`NOT_SHIPPED` hardcoded a dated audit filename**, guaranteeing that the
+  next report would fail the drift guard. Entries may now end in `/` to cover
+  a directory, and no entry may contain a date.
+
+### Notes
+- `scripts/benchmarks.sh` gained a test suite it had shipped without.
+  Suites are now 16 + 23 + 31 = **70 checks**, green on Windows/Python 3.13,
+  four CI jobs, and WSL Ubuntu 26.04 / Python 3.14 / bash 5.3.9.
+
 ## [0.3.5] — 2026-08-09
 
 ### Fixed

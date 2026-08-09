@@ -228,32 +228,60 @@ SHIPPED = set(installer.PAYLOAD)
 # or the two drift apart and the guard stops meaning anything. Every tracked
 # file is named in one list or the other -- .gitignore, .gitattributes,
 # docs/index.html, docs/.nojekyll and the workflow included.
-def git_files(*args):
-    """The file list git reports, or None when this is not a checkout.
+def why_not_the_repo():
+    """None when ROOT is this repo's own checkout, else the reason it isn't.
 
-    `git ls-files` outside a repository exits 128 with EMPTY stdout. Ignoring
-    the return code turned "git cannot answer" into "nothing is unaccounted
-    for", so the drift guard printed ok in every installed copy -- which is
-    exactly where tests/ ships, for users to verify their own install. Proven:
-    with a junk file sitting in references/, the guard still said ok.
-    An empty list must never stand in for an unanswerable question.
+    Two separate failure modes, and only checking for the first left the
+    second failing loudly:
+
+    1. NO git. `git ls-files` outside a repository exits 128 with EMPTY
+       stdout. Ignoring the return code turned "git cannot answer" into
+       "nothing is unaccounted for", so the guard printed ok in every
+       installed copy -- exactly where tests/ ships, for users to verify their
+       own install.
+    2. The WRONG git. Installed under a user's own project (`--project`, which
+       install.py documents), git succeeds and enumerates THEIR repo. The
+       guard then failed, naming `references/local-notes.md` -- the file the
+       installer had just created for them on purpose -- as unaccounted for.
+       A false alarm on the verification path is worse than a silent pass.
+
+    So test identity, not availability. This is repo-development machinery; it
+    runs only in the repo.
     """
+    r = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=ROOT,
+                       capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        return "not a git checkout, so git cannot enumerate the repo"
+    top = pathlib.Path(r.stdout.strip()).resolve()
+    if top != ROOT.resolve():
+        return f"this is an install inside a different repository ({top})"
+    return None
+
+
+def git_files(*args):
     r = subprocess.run(["git", "ls-files", *args], cwd=ROOT,
                        capture_output=True, text=True, timeout=60)
     return r.stdout.split() if r.returncode == 0 else None
 
 
-tracked = git_files()
+not_the_repo = why_not_the_repo()
+tracked = git_files() if not not_the_repo else None
 # Untracked-but-not-ignored files count too. git ls-files sees only what is
 # already staged or committed, so a brand-new reference doc stayed invisible to
 # this guard until someone ran `git add` -- CI caught it, but only a step later
 # than the author needed. --others --exclude-standard closes that gap while
 # still respecting .gitignore, so local-notes.md and __pycache__ stay exempt.
-untracked = git_files("--others", "--exclude-standard")
+untracked = git_files("--others", "--exclude-standard") if not not_the_repo else None
 
 if tracked is None or untracked is None:
-    skip("payload drift guard (3 checks)",
-         "not a git checkout, so git ls-files cannot enumerate the repo")
+    # Name every check that did not run, one skip() each. The label used to
+    # carry a hardcoded "(3 checks)" when only 2 were lost -- a literal count
+    # is the same fossil class as a dated filename or a sed line range, and it
+    # put a false number inside the machinery added for honesty. Counting
+    # itself cannot drift.
+    for missed in ("every tracked file is shipped or explicitly excluded",
+                   "a second file in docs/audits/ does not break the guard"):
+        skip(missed, not_the_repo or "git could not enumerate the repo")
 else:
     # Use install.py's own matcher, so the guard and the exclusion list
     # cannot drift apart about what "excluded" means.
