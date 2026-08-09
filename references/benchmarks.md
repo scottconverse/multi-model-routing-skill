@@ -23,7 +23,65 @@ into confident prose.
 A model that tops Intelligence is not automatically the right pick for an
 agentic loop. Match the index to the job.
 
-## 2. Query it, don't read it
+## 2. The official Data API — the path that actually works
+
+**There is a free public API, and it returns exactly what routing needs.**
+
+```bash
+curl -H "x-api-key: $AA_API_KEY" \
+  https://artificialanalysis.ai/api/v2/language/models/free
+```
+
+| | |
+|---|---|
+| Base URL | `https://artificialanalysis.ai/api/v2` |
+| Auth | `x-api-key` header (no OAuth, no bearer exchange) |
+| Free tier | **100 requests / 24h**, fixed window, shared per organization |
+| Free tier returns | model identity, **headline indices**, median performance, input/output token pricing |
+| Key fields | `artificial_analysis_intelligence_index`, `artificial_analysis_coding_index`, `artificial_analysis_agentic_index`, `intelligence_index_version` |
+| Rate headers | `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After` on 429 |
+
+*Verified 2026-08-09 from this machine:* the endpoint is live and reachable —
+no key returns `{"error":"API key is required"}`, a bad key returns
+`{"error":"Invalid API key."}`, both HTTP 401. **A key is the only blocker.**
+
+**Getting a key** is an account signup on the Artificial Analysis Insights
+Platform, then generate one from the API key page. That is the owner's to do —
+an agent must not create accounts. Store it as `AA_API_KEY` in the environment,
+never in this repo.
+
+Docs: <https://artificialanalysis.ai/data-api/docs>
+
+### ⚠️ Licence constraint — read before publishing any number
+
+The free tier is **internal use only, no redistribution, and commercial use is
+prohibited.** Attribution to Artificial Analysis is required on every tier.
+
+For this repo that means a hard line:
+
+- **Using the indices to decide routing is fine** — that is internal use.
+- **Publishing a table of API-sourced scores into this public MIT repo is
+  redistribution and is not permitted on the free tier.** Keep pulled numbers
+  in `local-notes.md` (git-ignored) or in the session, not in shipped docs.
+- Capability *claims* sourced from public articles and vendor posts are a
+  different thing and may be cited with attribution — that is what
+  `references/codex.md` does. Don't blur the two.
+- Redistribution needs a Pro or Commercial tier. If that changes, revisit this.
+
+### Ready-made integrations
+
+Rather than hand-rolling a client:
+
+- **`davidhariri/artificial-analysis-mcp`** — unofficial MCP server, MIT,
+  actively maintained. Wiring it in means the indices become tool calls, the
+  same shape as the Codex bridge in `cross-agent.md`.
+- **`aneym/artificial-analysis-cli`** — Rust CLI, MIT, if a shell call suits
+  better than an MCP server.
+
+Both are third-party and unaudited; read before trusting, and remember the key
+they consume is a production secret.
+
+## 3. Query it, don't read it
 
 Prefer a query over the web page: the page is JavaScript-rendered, so a plain
 fetch returns methodology prose and no numbers.
@@ -50,7 +108,7 @@ MCP as `✔ Connected`; as of 2026-08-09 on this machine it reported
 If it needs auth, say so and fall back to asking the user rather than guessing
 at rankings.
 
-## 3. Why this matters more here than in most skills
+## 4. Why this matters more here than in most skills
 
 **Artificial Analysis scores open-weights models on the same indices as
 proprietary ones.** That is the piece a routing skill actually needs: it puts
@@ -73,7 +131,25 @@ Use it that way:
 - **When picking what to pull**, sort open weights by the index that matches
   the job and check it fits in RAM (`local-backends.md`).
 
-## 4. Rules
+## Fallbacks if the API is unavailable
+
+If there is no key, or the daily quota is spent, say so — do not substitute a
+guess. Options, in order:
+
+1. **Ask the owner.** He maintains a working comparison set and can read the
+   numbers off the page in seconds.
+2. **The OpenRouter MCP** (`list-benchmarks source=artificial-analysis`) carries
+   the same indices second-hand, when its connector is authenticated.
+3. **Aggregators** — `llm-stats.com`, `benchlm.ai`, Vellum's leaderboard. Several
+   of these source from Artificial Analysis themselves, so treat them as the
+   same claim relayed, not as independent confirmation.
+
+What is NOT acceptable: scraping the site to work around the API, or reciting a
+remembered ranking as though it were looked up. The page is
+JavaScript-rendered, so a plain fetch returns methodology prose and no numbers —
+if a number appears without a call behind it, it was invented.
+
+## 5. Rules
 
 - **Cite the index and the date** when a tier assignment rests on it. "Chosen
   on Coding Agent Index, checked 2026-08-09" ages honestly; "it's better at
