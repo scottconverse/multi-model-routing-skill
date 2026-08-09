@@ -89,6 +89,47 @@ Neither is a routing instruction on its own — RAM, speed and the measured
 results in `local-backends.md` still decide. But this is the comparison the
 skill was missing.
 
+### ⚠️ "Open weights" means downloadable, NOT runnable here
+
+This is the trap in reading the `--open` list top-down. The highest-scoring
+open model on that list is **`kimi-k3` (157.01)**, and its requirements are:
+
+| | |
+|---|---|
+| Parameters | 2.8 trillion, sparse MoE (896 experts, 16 active) |
+| Full weights | 1.56 TB |
+| Quantized (MXFP4) download | ~594 GB |
+| Minimum to serve | **8× H200 on one node**, or 8 nodes of 8× H100 at full precision |
+
+Against 25.8 GB of RAM on this machine, that is not a close call. **Open
+weights is a licence fact, not a hardware fact.** The two get conflated
+constantly and the leaderboard does nothing to separate them.
+
+**So there are three different questions, and only the first is about the
+score:**
+
+1. *Is it good?* — the benchmark data answers this.
+2. *Can I run it?* — parameter count and quantized file size against free RAM.
+   See the measured ceiling in `local-backends.md`: a 17.99 GB model failed to
+   load with 17.5 GB free. The realistic local ceiling here is well under that.
+3. *Can I reach it another way?* — a big open model is usually served by
+   API providers (OpenRouter lists `moonshotai/kimi-k3`), and Antigravity
+   already gives free access to `gpt-oss-120b`. That is still worth having —
+   often cheaper than a proprietary tier at similar capability — but it is
+   **not local and not private**, so the privacy half of the routing rule
+   applies exactly as it does to Codex.
+
+**Rule of thumb:** filter the `--open` list by what fits before treating it as
+a shortlist. A frontier open model you cannot host is an API option with better
+licensing, not a local one.
+
+⚠️ **One discrepancy to verify before relying on it:** Epoch's
+`Model accessibility` column marks `kimi-k3` as *"Open weights
+(non-commercial)"*, while the release reporting describes Apache 2.0 weights on
+Hugging Face. Those cannot both be right. Check the actual model card before
+making a licensing decision on it — this is a good reminder that a metadata
+column is a summary, not the licence.
+
 ---
 
 ## 1. Which measure for which job

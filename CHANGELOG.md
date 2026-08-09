@@ -28,6 +28,23 @@ All notable changes to multi-model-routing are documented here. Format follows
   weights) outscores `claude-sonnet-5` (155.53) and `gemini-3.6-flash` (153.98),
   two paid tiers this skill routes to.
 
+  ⚠️ **With the caveat that makes the rule usable: "open weights" means
+  downloadable, not runnable.** `kimi-k3` is 2.8T parameters, ~594 GB
+  quantized, and needs 8× H200 to serve — against 25.8 GB of RAM here that is
+  not a close call. The skill now separates three questions: *is it good* (the
+  data), *can I run it* (size against free RAM — a 17.99 GB model already
+  failed to load at 17.5 GB free), and *can I reach it another way* (API
+  providers, or Antigravity's free `gpt-oss-120b`). A frontier open model
+  reached over someone else's API is an option with better licensing — it is
+  **not local and not private**, and the privacy rule applies to it exactly as
+  it does to Codex.
+
+  Also flagged for verification rather than assumed: Epoch's accessibility
+  column marks `kimi-k3` "Open weights (non-commercial)" while release
+  reporting describes Apache 2.0 weights. Both cannot be right — check the
+  model card before making a licensing decision. A metadata column is a
+  summary, not the licence.
+
 ## [0.3.4] — 2026-08-09
 
 ### Added

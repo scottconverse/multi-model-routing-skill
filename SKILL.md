@@ -71,12 +71,22 @@ Two axes, cost and privacy:
 
 - **Open source first.** Where an open-weights model can do the job, prefer it
   — over a paid API model, and when choosing what to pull. This is the owner's
-  standing preference and it is not only about cost: open weights run locally,
-  keep data on the machine, cost nothing per call, and cannot be deprecated out
-  from under you. It is also no longer a sacrifice. On the open benchmark data
-  (`scripts/benchmarks.sh --open`), the leading open-weights models score
+  standing preference and it is not only about cost: open weights keep data on
+  the machine when run locally, cost nothing per call, and cannot be deprecated
+  out from under you. It is also no longer a capability sacrifice — on the open
+  data (`scripts/benchmarks.sh --open`), leading open-weights models score
   *above* several paid tiers this skill routes to. Check before assuming the
-  paid one is better.
+  paid option is better.
+
+  ⚠️ **"Open weights" means downloadable, not runnable.** Before treating a
+  high-scoring open model as a local option, check its size against free RAM.
+  The top open model on that list is 2.8T parameters and needs 8× H200 — it is
+  an API option with better licensing, not something this machine will host.
+  Three separate questions: is it good (the data), can I run it (size vs RAM,
+  see `references/local-backends.md`), and can I reach it another way (API
+  providers, or Antigravity's free `gpt-oss-120b`). A big open model reached
+  over an API is **not private** — the privacy rule applies to it exactly as it
+  does to Codex.
 
 Local model output is raw material: it never ships unreviewed. You (or a
 Claude subagent) review before it counts.
