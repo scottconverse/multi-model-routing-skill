@@ -8,6 +8,8 @@ dialect fallback (404 and 405), empty replies, error bodies served with HTTP
 Run: python3 tests/test_call_local.py (from the skill root or anywhere).
 """
 import json
+import os
+import tempfile
 import pathlib
 import shutil
 import subprocess
@@ -94,13 +96,34 @@ def serve(port, handler):
     return srv
 
 
-def run(port, env=None, max_tokens="100"):
+def run(port, env=None, max_tokens="100", prompt="hi", stdin=None):
     full = None
     if env:
         import os
         full = {**os.environ, **env}
-    return subprocess.run([BASH, SCRIPT, f"http://127.0.0.1:{port}", "m", "hi", max_tokens],
-                          capture_output=True, text=True, timeout=90, env=full)
+    return subprocess.run([BASH, SCRIPT, f"http://127.0.0.1:{port}", "m", prompt, max_tokens],
+                          capture_output=True, text=True, timeout=180, env=full,
+                          input=stdin)
+
+
+class EchoHandler(BaseHTTPRequestHandler):
+    """Reports the prompt it received, so tests assert on what ARRIVED."""
+    def do_POST(self):
+        n = int(self.headers.get("content-length", 0))
+        got = json.loads(self.rfile.read(n))["messages"][0]["content"]
+        body = {"content": [{"type": "text",
+                             "text": f"LEN={len(got)} NL={got.count(chr(10))} "
+                                     f"HEAD={got[:12]} TAIL={got[-12:]}"}],
+                "usage": {"input_tokens": 1, "output_tokens": 1}}
+        data = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, *a):
+        pass
 
 
 CASES = [
@@ -152,5 +175,43 @@ r = run(18817, env={"CALL_LOCAL_TIMEOUT": "3", "CALL_LOCAL_CONNECT_TIMEOUT": "2"
 assert r.returncode == 1, (r.returncode, r.stderr)
 assert "timed out" in r.stderr.lower(), r.stderr
 
+# --- a large prompt must not have to fit in argv --------------------------
+# A literal prompt is capped by the OS: curl reports "Argument list too long"
+# past ~32k here, and a .cmd shim caps the whole command line near 8k. A batch
+# caller passing a real log needs a path that isn't argv. Assert on what the
+# SERVER received, not on exit status — a truncated prompt would still exit 0.
+serve(18818, EchoHandler)
+
+BIG = "\n".join(f"2026-08-09 line {i} ERROR padding padding padding" for i in range(4000))
+assert len(BIG) > 200_000, len(BIG)
+
+r = run(18818, prompt="-", stdin=BIG)
+assert r.returncode == 0, ("stdin prompt failed", r.returncode, r.stderr[-400:])
+assert f"LEN={len(BIG)}" in r.stdout, ("stdin prompt did not arrive intact",
+                                       len(BIG), r.stdout.strip()[:200])
+assert f"NL={BIG.count(chr(10))}" in r.stdout, ("newlines lost", r.stdout.strip()[:200])
+
+with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False,
+                                 encoding="utf-8") as fh:
+    fh.write(BIG)
+    big_path = fh.name
+try:
+    r = run(18818, prompt=f"file:{pathlib.Path(big_path).as_posix()}")
+    assert r.returncode == 0, ("file: prompt failed", r.returncode, r.stderr[-400:])
+    assert f"LEN={len(BIG)}" in r.stdout, ("file: prompt did not arrive intact",
+                                           r.stdout.strip()[:200])
+finally:
+    os.unlink(big_path)
+
+# the literal positional form must still behave exactly as before
+r = run(18818, prompt="hello world")
+assert r.returncode == 0 and "LEN=11" in r.stdout, ("literal prompt regressed",
+                                                    r.stdout.strip()[:200])
+
+# a missing @file is an error, not a prompt literally named "@missing"
+r = run(18818, prompt="file:/nonexistent/prompt.txt")
+assert r.returncode == 1 and "no such prompt file" in r.stderr, (r.returncode, r.stderr[:200])
+
 print("PASS: anthropic, openai 404-fallback, 405-fallback, empty-reply, "
-      "error-body, null-content, stall-timeout")
+      "error-body, null-content, stall-timeout, big-prompt-stdin, "
+      "big-prompt-file, literal-prompt, missing-prompt-file")

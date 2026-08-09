@@ -11,10 +11,17 @@
 # evidence the call actually happened.
 #
 # Usage:
-#   call_local.sh <base-url> <model> <prompt> [max_tokens]
+#   call_local.sh <base-url> <model> <prompt|-|file:PATH> [max_tokens]
+#
+# The prompt may be given three ways. Use `-` or `file:PATH` for anything large:
+# a literal argument has to fit in the OS argv limit, which a real batch input
+# will exceed (curl reports "Argument list too long" past ~32k on Windows, and
+# a .cmd shim caps the whole command line near 8k).
+#
 # Examples:
 #   call_local.sh http://localhost:11434 qwen2.5-coder:7b "Reply with exactly: OK" 512
-#   call_local.sh http://localhost:1234  gemma-3-12b     "Summarize: ..."       2048
+#   call_local.sh http://localhost:1234  gemma-3-12b     file:prompt.txt            2048
+#   cat big.log | call_local.sh http://localhost:11434 qwen2.5:7b - 2048
 #
 # Exit codes:
 #   0  reply on stdout
@@ -37,15 +44,39 @@
 
 set -euo pipefail
 
-BASE="${1:?usage: call_local.sh <base-url> <model> <prompt> [max_tokens]}"
+BASE="${1:?usage: call_local.sh <base-url> <model> <prompt|-|file:PATH> [max_tokens]}"
 MODEL="${2:?missing <model>}"
-PROMPT="${3:?missing <prompt>}"
+PROMPT_ARG="${3:?missing <prompt> (use - for stdin, or file:PATH)}"
 MAX_TOKENS="${4:-1024}"
 
 CONNECT_TIMEOUT="${CALL_LOCAL_CONNECT_TIMEOUT:-5}"
 TIMEOUT="${CALL_LOCAL_TIMEOUT:-300}"
 
-BODY=$(MODEL="$MODEL" PROMPT="$PROMPT" MAX_TOKENS="$MAX_TOKENS" python3 -c '
+RESP_FILE=$(mktemp)
+PROMPT_FILE=$(mktemp)
+BODY_FILE=$(mktemp)
+trap 'rm -f "$RESP_FILE" "$PROMPT_FILE" "$BODY_FILE"' EXIT
+
+# Get the prompt onto disk without it ever passing through argv or the
+# environment. Both have hard ceilings that a batch caller hits with a real
+# input: on Windows curl refuses a body over ~32k with "Argument list too
+# long", and a .cmd shim caps the whole command line at ~8k. Reading a file or
+# stdin has no such limit.
+# NOTE: the file sigil is `file:PATH`, deliberately NOT `@PATH`. Git Bash on
+# Windows expands a leading @ as a *response file* before the script ever runs:
+# `@p.txt` containing "alpha beta gamma" arrives as three separate arguments,
+# which silently shifts every later argument. Verified 2026-08-09.
+case "$PROMPT_ARG" in
+    -)  cat > "$PROMPT_FILE" ;;                        # prompt on stdin
+    file:*)
+        src="${PROMPT_ARG#file:}"
+        [ -f "$src" ] || { echo "call_local.sh: no such prompt file: $src" >&2; exit 1; }
+        cat "$src" > "$PROMPT_FILE" ;;
+    *)  printf '%s' "$PROMPT_ARG" > "$PROMPT_FILE" ;;  # literal, as before
+esac
+
+MODEL="$MODEL" MAX_TOKENS="$MAX_TOKENS" \
+PROMPT_FILE="$PROMPT_FILE" BODY_FILE="$BODY_FILE" python3 -c '
 import json, os, sys
 
 raw = os.environ["MAX_TOKENS"]
@@ -54,12 +85,16 @@ try:
 except ValueError:
     sys.exit("call_local.sh: max_tokens must be an integer, got %r" % raw)
 
-print(json.dumps({
-    "model": os.environ["MODEL"],
-    "max_tokens": max_tokens,
-    "messages": [{"role": "user", "content": os.environ["PROMPT"]}],
-}))
-')
+with open(os.environ["PROMPT_FILE"], encoding="utf-8") as f:
+    prompt = f.read()
+
+with open(os.environ["BODY_FILE"], "w", encoding="utf-8") as f:
+    json.dump({
+        "model": os.environ["MODEL"],
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+    }, f)
+'
 
 # Echoes "<http_code> <curl_exit>". curl's exit status has to ride along in
 # stdout: the caller reads this through a command substitution, so a global
@@ -67,14 +102,14 @@ print(json.dumps({
 do_post() {
     local path="$1" code rc=0
     shift
+    # --data-binary @FILE, never -d "$BODY": passing the body as an argument is
+    # what hits the OS argv ceiling on a large prompt.
     code=$(curl -sS -o "$RESP_FILE" -w '%{http_code}' \
         --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
-        -X POST "$BASE$path" -H 'content-type: application/json' "$@" -d "$BODY") || rc=$?
+        -X POST "$BASE$path" -H 'content-type: application/json' "$@" \
+        --data-binary "@$BODY_FILE") || rc=$?
     echo "${code:-000} $rc"
 }
-
-RESP_FILE=$(mktemp)
-trap 'rm -f "$RESP_FILE"' EXIT
 
 read -r CODE CURL_RC <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
 
