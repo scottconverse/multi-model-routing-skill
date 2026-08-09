@@ -4,7 +4,7 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
-## [0.3.0] — 2026-08-08
+## [0.3.0] — 2026-08-09
 
 Proof release. The routing advice was sound but the skill had never been
 watched doing its own job, and several commands it recommended had never been
@@ -83,6 +83,11 @@ run. Both fixed, and running them found real defects in the advice itself.
 - The manual and landing page now document the MCP bridges. They previously
   contained zero mentions of MCP — every bridge lived only in `references/`,
   so no human-facing page described the feature at all.
+- **All four documents brought into sync for the release.** An audit found the
+  README never mentioned MCP, `agy`, or any of the three reference files, and
+  neither the manual nor the landing page mentioned `install.py` at all. The
+  README now leads with the measured 12/12-vs-1-of-10 result, and every
+  document lists the same install paths and the same file inventory.
 
 ## [0.2.0] — 2026-08-08
 

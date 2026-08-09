@@ -4,11 +4,11 @@
 [Manual](./docs/MANUAL.md) · [SKILL.md](./SKILL.md) ·
 [Changelog](./CHANGELOG.md)**
 
-A [Claude Code](https://claude.com/claude-code) / Claude Cowork skill that
-routes batch and mechanical work across whatever model backends are actually
-available on the machine — local LLMs (Ollama, LM Studio), the Codex CLI
-(OpenAI models), and Claude itself — instead of defaulting everything to
-premium Claude usage.
+A [Claude Code](https://claude.com/claude-code) / Claude Cowork / Antigravity
+skill that routes batch and mechanical work across whatever model backends are
+actually available on the machine — local LLMs (Ollama, LM Studio), the Codex
+CLI (OpenAI models), Antigravity (`agy`: Gemini, GPT-OSS 120B, Claude 4.6), and
+Claude itself — instead of defaulting everything to premium Claude usage.
 
 Grunt work (log triage, bulk tagging, format conversion, first-draft
 docstrings, test-data generation, TODO sweeps — anything high-volume and
@@ -18,7 +18,41 @@ work, and final review. Local output never ships unreviewed. Full routing
 rule, discovery protocol, and per-backend call instructions are in
 [`SKILL.md`](./SKILL.md).
 
+## Why the "never unreviewed" rule is load-bearing
+
+Same 7B local model, same machine, same day:
+
+| Job | Result | Cost | Time |
+|---|---|---|---|
+| Classify 12 log files (known answers) | **12/12 correct** | $0 | 27 s |
+| Adversarial review of a bash script | **~1 of 10 findings real** | $0 | 72 s |
+
+Exact on mechanical work, inventive on judgment. That gap is the whole reason
+the ladder exists — a small local model isn't "worse AI" you tolerate to save
+money, it's a tool with one sharp edge and one blunt one.
+
+## Agents can drive each other
+
+MCP is the common bus, and all three directions are verified on real hardware:
+Claude Code → Codex, Antigravity → Codex, and Codex → Chrome DevTools. So a
+Claude session can hand work to Codex as a native tool rather than shelling
+out. **Registration is per-agent, not global** — each harness keeps its own
+config. See [`references/cross-agent.md`](./references/cross-agent.md).
+
 ## Install
+
+**Easiest — the installer.** It auto-detects Claude Code and Antigravity,
+installs into each, and creates your notes file from the template without ever
+overwriting an existing one:
+
+```bash
+git clone https://github.com/scottconverse/multi-model-routing-skill.git
+cd multi-model-routing-skill
+python3 install.py            # --list to preview, --app claude|antigravity,
+                              # --project DIR for a single project
+```
+
+### Or install by hand
 
 Skills are auto-discovered from two locations:
 
@@ -57,6 +91,14 @@ SKILL.md                    the skill itself — read this first
 scripts/call_local.sh       calls a local Ollama/LM Studio server, with
                              Anthropic/OpenAI dialect fallback and a
                              stderr "receipt" line for evidence
+references/codex.md         Codex: model selection BY CAPABILITY (not by
+                             asking the user), the full CLI surface, and two
+                             cost traps that reverse the obvious choice
+references/cross-agent.md   how Claude Code, Codex and Antigravity find each
+                             other and each other's models; the MCP bridges,
+                             all verified end to end
+references/local-backends.md  what Ollama and LM Studio verifiably do — tools,
+                             vision, embeddings, prompt caching, RAM limits
 references/local-notes.example.md
                             template for machine/account-specific facts
                              (quota, CLI paths), kept OUT of SKILL.md so the
@@ -73,6 +115,10 @@ CHANGELOG.md                what changed, and why
 install.py                  installs the skill into Claude Code and/or
                              Antigravity; --list for a dry run
 CONTRIBUTING.md             the evidence rule: claims are backed by a run
+docs/DISCUSSIONS_SEED.md    six open questions from building this
+.github/workflows/test.yml  CI: the suite on Ubuntu AND Windows, shellcheck,
+                             LF/exec-bit checks, and a guard that the private
+                             notes file is never committed
 ```
 
 ## Requirements

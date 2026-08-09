@@ -215,13 +215,18 @@
 
 <section class="wrap">
   <h2>Quick start</h2>
-  <h3>Install (Claude Code / Cowork, all projects)</h3>
+  <h3>Install</h3>
+  <pre><code>git clone https://github.com/scottconverse/multi-model-routing-skill.git
+cd multi-model-routing-skill
+python3 install.py</code></pre>
+  <p class="muted">The installer auto-detects Claude Code and Antigravity, installs into each, and creates your per-machine notes file from the template — never overwriting one that already exists. <code>--list</code> previews without changing anything; <code>--app claude</code> or <code>--app antigravity</code> targets one; <code>--project DIR</code> installs into a single project.</p>
+  <h3>Or by hand</h3>
   <pre><code>git clone https://github.com/scottconverse/multi-model-routing-skill.git \
   ~/.claude/skills/multi-model-routing
 
 cd ~/.claude/skills/multi-model-routing
 cp references/local-notes.example.md references/local-notes.md</code></pre>
-  <p class="muted">The folder name must be <code>multi-model-routing</code> — that's what <code>SKILL.md</code>'s <code>name:</code> field expects, regardless of what the repo is called. The agent picks it up automatically from there; there's nothing to enable.</p>
+  <p class="muted">The folder name must be <code>multi-model-routing</code> — that's what <code>SKILL.md</code>'s <code>name:</code> field expects, regardless of what the repo is called. The agent picks it up automatically from there; there's nothing to enable. Install it in <em>every</em> harness you use — routing advice only helps the session that can read it.</p>
   <h3>Then just ask for bulk work</h3>
   <p class="muted">"Summarize every log in this folder." "Tag these 300 rows." "Draft docstrings for all of these." The skill triggers on the shape of the request — a folder, a count, "all of them" — and routes it before reading a single file.</p>
   <h3>You need less than you'd think</h3>
@@ -257,7 +262,8 @@ cp references/local-notes.example.md references/local-notes.md</code></pre>
 
 <footer class="wrap">
   <p>MIT licensed · built for <a href="https://claude.com/claude-code">Claude Code</a> and Cowork, usable by any agent that can read a markdown file</p>
-  <p style="margin-top:10px"><a href="https://github.com/scottconverse/multi-model-routing-skill">GitHub</a> · <a href="./MANUAL.md">Manual</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/SKILL.md">SKILL.md</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/CHANGELOG.md">Changelog</a></p>
+  <p style="margin-top:10px"><a href="https://github.com/scottconverse/multi-model-routing-skill">GitHub</a> · <a href="./MANUAL.md">Manual</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/SKILL.md">SKILL.md</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/CONTRIBUTING.md">Contributing</a></p>
+  <p style="margin-top:10px">Deep reference: <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/references/codex.md">codex.md</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/references/cross-agent.md">cross-agent.md</a> · <a href="https://github.com/scottconverse/multi-model-routing-skill/blob/main/references/local-backends.md">local-backends.md</a></p>
 </footer>
 
 </body>

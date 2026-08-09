@@ -29,6 +29,28 @@ own hardware, and something better checks the result.
 
 ## 2. Install
 
+**The installer is the short path.** It auto-detects Claude Code and
+Antigravity, installs into each, creates your notes file from the template, and
+will never overwrite an existing one:
+
+```bash
+git clone https://github.com/scottconverse/multi-model-routing-skill.git
+cd multi-model-routing-skill
+python3 install.py
+```
+
+| Flag | Effect |
+|---|---|
+| `--list` | dry run — prints what it would do, changes nothing |
+| `--app claude` / `--app antigravity` | just that harness (repeatable) |
+| `--project DIR` | into `DIR/.claude/skills` for one project only |
+
+**Install it in every harness you use.** Routing advice only helps the session
+that can read it — a skill living in one agent can't tell the others what to
+route where.
+
+### By hand
+
 Skills are auto-discovered from two locations. Personal install (every project
 on the machine) is what most people want:
 
@@ -456,7 +478,23 @@ It stops what it started, and leaves alone anything that was already running.
 
 ---
 
-## 13. Removal
+## 13. Further reading
+
+These are written for the agent and load on demand, but they're the deepest
+material in the repo and readable on their own:
+
+| File | What's in it |
+|---|---|
+| [`references/codex.md`](../references/codex.md) | Codex model selection **by capability**, the full CLI surface, and two cost traps that reverse the obvious choice |
+| [`references/cross-agent.md`](../references/cross-agent.md) | How Claude Code, Codex and Antigravity find each other; every MCP bridge with its verification |
+| [`references/local-backends.md`](../references/local-backends.md) | What Ollama and LM Studio verifiably do — tools, vision, embeddings, prompt caching, RAM limits |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | The evidence rule, argued from the defects this repo shipped by breaking it |
+| [`DISCUSSIONS_SEED.md`](./DISCUSSIONS_SEED.md) | Six open questions from building this |
+
+`SKILL.md` stays deliberately short — it loads into context every time the
+skill triggers, so length there is a tax on every session. Depth lives here.
+
+## 14. Removal
 
 ```bash
 rm -rf ~/.claude/skills/multi-model-routing
