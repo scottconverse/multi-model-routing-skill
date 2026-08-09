@@ -38,7 +38,7 @@ the fix for all of them was the same fix.
 **Dimension:** Tests
 **Evidence:** No file under `tests/` references `benchmarks.sh` (0 matches). By contrast `call_local.sh` is referenced by 2 test files and `install.py` by 1. The script is in `PAYLOAD` (`install.py:36`), so it ships to every install.
 **Why it matters:** This repo's own `CONTRIBUTING.md` states *"Every bug fixed in `scripts/call_local.sh` gets a regression test in the same change."* A new shipped executable arrived exempt from that. The three findings below were all found by probing paths a test would have covered — the gap is already producing defects, not merely risking them.
-**Fix path:** Add `tests/test_benchmarks.sh.py` covering: argument validation, unknown measure, `--list`, `--model` with no match, `--open` against a measure lacking the accessibility column, and cache-hit vs refetch. Point it at a fixture directory via `BENCHMARKS_CACHE` so it needs no network — the same trick `test_call_local.py` uses with mock servers.
+**Fix path:** Add `tests/test_benchmarks.py` covering: argument validation, unknown measure, `--list`, `--model` with no match, `--open` against a measure lacking the accessibility column, and cache-hit vs refetch. Point it at a fixture directory via `BENCHMARKS_CACHE` so it needs no network — the same trick `test_call_local.py` uses with mock servers.
 
 ---
 
