@@ -212,6 +212,29 @@ assert r.returncode == 0 and "LEN=11" in r.stdout, ("literal prompt regressed",
 r = run(18818, prompt="file:/nonexistent/prompt.txt")
 assert r.returncode == 1 and "no such prompt file" in r.stderr, (r.returncode, r.stderr[:200])
 
+# --- CALL_LOCAL_DIALECT --------------------------------------------------
+# A gateway picks its dialect per MODEL, not per server: OpenCode Zen answers
+# /v1/messages with 401/400 for free models while /v1/chat/completions works.
+# `auto` correctly refuses to fall back on those codes (a 400 is usually a real
+# bad request), so the caller states the dialect when it knows.
+serve(18819, make(200, {"type": "error", "error": {"message": "wrong dialect"}}, OPENAI_OK))
+
+# auto: /v1/messages answers 200-with-an-error-body, so no fallback happens
+r = run(18819)
+assert r.returncode == 1 and "wrong dialect" in r.stderr, ("auto must not fall back here",
+                                                           r.returncode, r.stderr[:200])
+# openai: skip the Anthropic probe entirely and the call succeeds
+r = run(18819, env={"CALL_LOCAL_DIALECT": "openai"})
+assert r.returncode == 0 and r.stdout.strip() == "OK-openai", ("forced openai dialect",
+                                                               r.stdout, r.stderr[:200])
+# anthropic: forced, so it must NOT silently fall back
+r = run(18819, env={"CALL_LOCAL_DIALECT": "anthropic"})
+assert r.returncode == 1, ("forced anthropic must not fall back", r.returncode, r.stdout)
+# an unknown value is rejected rather than guessed at
+r = run(18819, env={"CALL_LOCAL_DIALECT": "sideways"})
+assert r.returncode == 1 and "must be auto" in r.stderr, r.stderr[:200]
+
 print("PASS: anthropic, openai 404-fallback, 405-fallback, empty-reply, "
       "error-body, null-content, stall-timeout, big-prompt-stdin, "
-      "big-prompt-file, literal-prompt, missing-prompt-file")
+      "big-prompt-file, literal-prompt, missing-prompt-file, "
+      "dialect-auto, dialect-openai, dialect-anthropic, dialect-invalid")

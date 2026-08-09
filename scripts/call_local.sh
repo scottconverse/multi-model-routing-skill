@@ -111,14 +111,38 @@ do_post() {
     echo "${code:-000} $rc"
 }
 
-read -r CODE CURL_RC <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
+# CALL_LOCAL_DIALECT: auto (default) | anthropic | openai
+#
+# `auto` probes /v1/messages then falls back. That is right for a local server,
+# which either serves a dialect or doesn't. It is wrong for a GATEWAY, where the
+# dialect depends on the MODEL: OpenCode Zen serves /v1/messages only for paid
+# Claude models and answers 401/400 for everything else, while its free models
+# work fine on /v1/chat/completions. Falling back on 400 generally is not the
+# answer -- a 400 is usually a genuine bad request and retrying would hide it.
+# So the caller states the dialect when it knows.
+DIALECT="${CALL_LOCAL_DIALECT:-auto}"
 
-# 404, 405 and 501 all mean "this server doesn't serve that endpoint" — try the
-# OpenAI dialect before giving up. Matching only 404 would strand us on servers
-# that answer an unknown path with 405. Anything else is a genuine failure and
-# retrying the other dialect would just obscure it.
-case "$CODE" in
-    404|405|501) read -r CODE CURL_RC <<<"$(do_post /v1/chat/completions)" ;;
+case "$DIALECT" in
+    openai)
+        read -r CODE CURL_RC <<<"$(do_post /v1/chat/completions)"
+        ;;
+    anthropic)
+        read -r CODE CURL_RC <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
+        ;;
+    auto)
+        read -r CODE CURL_RC <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
+        # 404, 405 and 501 all mean "this server doesn't serve that endpoint" —
+        # try the OpenAI dialect before giving up. Matching only 404 would
+        # strand us on servers that answer an unknown path with 405. Anything
+        # else is a genuine failure and retrying would just obscure it.
+        case "$CODE" in
+            404|405|501) read -r CODE CURL_RC <<<"$(do_post /v1/chat/completions)" ;;
+        esac
+        ;;
+    *)
+        echo "call_local.sh: CALL_LOCAL_DIALECT must be auto, anthropic or openai" >&2
+        exit 1
+        ;;
 esac
 
 if [ "$CODE" != "200" ]; then
