@@ -90,7 +90,7 @@
 <body>
 
 <header class="wrap">
-  <div class="badge">v0.3.3 · MIT · 5 backends · 3 meters · every path live-tested</div>
+  <div class="badge">v0.3.4 · MIT · 5 backends · 3 meters · every path live-tested</div>
   <h1>You're paying for AI by the token.<br><span class="free">Your PC already has some for free.</span></h1>
   <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the local models already installed on your machine — then Codex, Antigravity, and Claude — across three separate meters, in cost and privacy order.</p>
   <div class="cta">
@@ -233,6 +233,9 @@ cp references/local-notes.example.md references/local-notes.md</code></pre>
   <pre><code>python3 install.py --uninstall     # --list to preview first</code></pre>
   <p class="muted">Your <code>local-notes.md</code> is preserved beside where the skill was and the path printed — those are measured machine facts, not disposable. Repeat uninstalls get numbered backups; an existing one is never overwritten.</p>
   <p class="muted"><strong>It refuses to delete a git checkout.</strong> If you installed by cloning, the install <em>is</em> your working copy — removing it would take your repository history, including unpushed commits. It stops and says so. It also refuses any directory without a <code>SKILL.md</code>, so a mistyped path can't destroy something else. Every install ships its own <code>install.py</code>, so you can uninstall from the install itself.</p>
+
+  <h3>Model choice is grounded, not guessed</h3>
+  <p class="muted"><a href="https://artificialanalysis.ai/">Artificial Analysis</a> is the reference of record for tier assignments — and it matters here because it scores <strong>open-weights models on the same indices as proprietary ones</strong>, putting the models on your machine and the models behind an API on one scale. There's a free official API (100 requests/day) returning the Intelligence, Coding Agent and Agentic indices. Note its free tier is internal-use-only: use the numbers to route, don't republish them. Benchmarks rank; they don't decide — a measured result on your own machine still wins.</p>
 
   <h3>Large prompts don't go through argv</h3>
   <pre><code>cat big.log | scripts/call_local.sh http://localhost:11434 qwen2.5:7b - 2048</code></pre>

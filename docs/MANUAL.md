@@ -18,7 +18,7 @@ beyond one optional notes file.
 sit in front of an endpoint, or rewrite requests. It's a policy your agent
 follows, plus a helper for talking to local servers.
 
-**It isn't a privacy boundary either.** See [§10](#10-honest-limits).
+**It isn't a privacy boundary either.** See [Honest limits](#10-honest-limits).
 
 The point is cost. A request like *"summarize every log in this folder"* is
 200 mechanical calls. Without this, all 200 go to a premium model built for
@@ -420,7 +420,53 @@ context on your hardware.
 
 ---
 
-## 9. What we measured
+## 9. Grounding model choice in benchmarks
+
+Which model belongs in which tier is a claim about capability, and a number
+typed into prose six months ago is a fossil, not evidence. The reference of
+record is [Artificial Analysis](https://artificialanalysis.ai/).
+
+It matters more here than in most tools for one reason: **it scores
+open-weights models on the same indices as proprietary ones.** That puts the
+models on your machine and the models behind an API on a single scale, so "is
+the local model good enough, or does this need a tier up?" becomes a comparison
+instead of a judgment call.
+
+Three indices — **Intelligence** (general), **Coding Agent** (the one that
+matters most here), **Agentic** (tool use, planning, multi-step loops). Topping
+one does not imply topping another; match the index to the job.
+
+### Setting it up
+
+There's a free official API. Get a key from
+[artificialanalysis.ai/data-api](https://artificialanalysis.ai/data-api),
+then:
+
+```bash
+export AA_API_KEY=...      # never commit this
+curl -H "x-api-key: $AA_API_KEY" \
+  https://artificialanalysis.ai/api/v2/language/models/free
+```
+
+Free tier is **100 requests / 24h** and returns model identity, the headline
+indices, median performance and token pricing. Ready-made clients exist if you
+prefer not to curl: `davidhariri/artificial-analysis-mcp` (MCP server) and
+`aneym/artificial-analysis-cli` — both MIT, both third-party and unaudited.
+
+### ⚠️ The licence line
+
+The **free tier is internal use only, no redistribution**, and attribution is
+required on every tier. Using the indices to decide routing is fine. Publishing
+a table of API-sourced scores into a public repo is redistribution and is not
+permitted on free — keep pulled numbers in your git-ignored `local-notes.md` or
+in the session. Redistribution needs a Pro or Commercial tier.
+
+Full method, fallbacks and rules: [`references/benchmarks.md`](../references/benchmarks.md).
+
+**Benchmarks rank; they don't decide.** A measured result on your machine beats
+a leaderboard — see the next section for why.
+
+## 10. What we measured
 
 On 2026-08-08 the same adversarial code audit was routed to the two cheaper
 tiers, and every finding either backend produced was then checked by hand
@@ -461,7 +507,7 @@ gets reviewed.
 
 ---
 
-## 10. Honest limits
+## 11. Honest limits
 
 **It does not enforce "local."** `call_local.sh` posts to whatever base URL you
 give it. The name says local; nothing in the code makes it so. Point it at a
@@ -485,7 +531,7 @@ prompt, so it shouldn't be looped carelessly.
 
 ---
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 **"no server reachable at ..."** — nothing is listening. Start Ollama, or run
 `lms server start`. Fails in about 5 seconds rather than hanging.
@@ -512,7 +558,7 @@ started a new session since installing.
 
 ---
 
-## 12. FAQ
+## 13. FAQ
 
 **Do I need all four backends?**
 No. It works with whatever you have. A missing backend is a one-line note
@@ -539,7 +585,7 @@ It stops what it started, and leaves alone anything that was already running.
 
 ---
 
-## 13. Further reading
+## 14. Further reading
 
 These are written for the agent and load on demand, but they're the deepest
 material in the repo and readable on their own:
@@ -555,7 +601,7 @@ material in the repo and readable on their own:
 `SKILL.md` stays deliberately short — it loads into context every time the
 skill triggers, so length there is a tax on every session. Depth lives here.
 
-## 14. Removal
+## 15. Removal
 
 ```bash
 python3 install.py --uninstall            # everywhere it's installed

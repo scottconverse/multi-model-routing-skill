@@ -4,7 +4,7 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.3.4] — 2026-08-09
 
 ### Added
 - **`references/benchmarks.md` — tier assignments are now grounded in a source
@@ -28,6 +28,18 @@ All notable changes to multi-model-routing are documented here. Format follows
   as of 2026-08-09 the OpenRouter connector on this machine reports
   `! Needs authentication`, which makes those queries silently unavailable
   until it is reconnected.
+
+- **The official Data API, documented with its licence line.** A free tier
+  exists: `https://artificialanalysis.ai/api/v2`, `x-api-key` header, 100
+  requests/24h, returning the headline indices, median performance and token
+  pricing. Verified live from this machine (401 without a key, 401 with a bad
+  one) — a key is the only blocker, and obtaining one is an account signup the
+  owner must do. ⚠️ **The free tier is internal use only, no redistribution**,
+  with attribution required on every tier: routing decisions are fine,
+  publishing API-sourced scores into this public repo is not. Ready-made
+  clients (`davidhariri/artificial-analysis-mcp`, `aneym/artificial-analysis-cli`)
+  and ranked fallbacks are recorded; scraping the site and reciting remembered
+  rankings are ruled out explicitly.
 
 ### Fixed
 - **The drift guard could not see a file until it was staged.** It used
