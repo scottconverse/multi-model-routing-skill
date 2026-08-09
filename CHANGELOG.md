@@ -54,9 +54,20 @@ should be a rename of this heading, not an archaeology exercise.
   a directory, and no entry may contain a date.
 
 ### Notes
+- **The suite no longer requires git.** Nothing about this skill does —
+  `install.py` is pure Python, the shell scripts want curl and python3 — but
+  `tests/test_install.py` spawned git at six call sites without a guard, so on
+  a machine without it the suite died with a `FileNotFoundError` traceback
+  instead of skipping. One `git_run()` chokepoint now catches it, and an AST
+  check asserts nothing spawns git any other way. Fixing that exposed nine
+  further checks that vanished silently when git was absent — one block
+  announced its skip with a bare `print()`, invisible to the tally, and
+  another had no `else` at all. Skips are now announced per check and counted:
+  `ran + skipped` is 25 with or without git.
 - `scripts/benchmarks.sh` gained a test suite it had shipped without.
-  Suites are now 16 + 23 + 31 = **70 checks**, green on Windows/Python 3.13,
-  four CI jobs, and WSL Ubuntu 26.04 / Python 3.14 / bash 5.3.9.
+  Suites are now 16 + 25 + 31 = **72 checks**, green on Windows/Python 3.13,
+  four CI jobs, WSL Ubuntu 26.04 / Python 3.14 / bash 5.3.9, and with git
+  entirely absent on both platforms.
 
 ## [0.3.5] — 2026-08-09
 

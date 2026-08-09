@@ -4,6 +4,7 @@
 Every case here exists because of a real defect. Run:
     python3 tests/test_install.py
 """
+import ast
 import os
 import pathlib
 import re
@@ -41,12 +42,29 @@ def run(*args, cwd=None):
                           capture_output=True, text=True, timeout=180, cwd=cwd)
 
 
-def have_git():
+def git_run(*args, cwd=None, timeout=60):
+    """Run git, or return None if git is not installed.
+
+    THE one place this file spawns git. subprocess.run raises FileNotFoundError
+    when the executable does not exist -- it never reaches a return code, so a
+    return-code check is unreachable in that case. Three call sites were added
+    without that guard, in this very file, which has had have_git() the whole
+    time; on a machine without git the suite died with a CreateProcess
+    traceback instead of skipping. Nothing about this skill needs git:
+    install.py is pure Python and the shell scripts want curl and python3.
+
+    A static check at the end of this file asserts nothing spawns git except
+    through here, so a fourth unguarded call site cannot be added quietly.
+    """
     try:
-        subprocess.run(["git", "--version"], capture_output=True, timeout=30)
-        return True
-    except Exception:
-        return False
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+                              text=True, timeout=timeout)
+    except OSError:
+        return None
+
+
+def have_git():
+    return git_run("--version") is not None
 
 
 results = []
@@ -62,6 +80,24 @@ def check(name, cond, detail=""):
     # character encoding. Same defect install.py was fixed for; it survived
     # here because the guard enforcing the rule read install.py BY NAME.
     print(f"  {'ok  ' if cond else 'FAIL'} {name}" + (f"  - {detail}" if detail and not cond else ""))
+
+
+# Check names live in one place each, so a skip can never announce a name that
+# no longer exists. Hardcoding them twice is the by-name habit that has cost
+# this repo five times over.
+VCS_UNINSTALL_CHECKS = (
+    "uninstall refuses a git checkout (dir survives)",
+    "uninstall refuses a git checkout (.git survives)",
+    "uninstall on a checkout does not traceback",
+    "uninstall on a checkout explains itself",
+)
+CHECKOUT_PRUNE_CHECKS = (
+    "install into a checkout keeps .gitignore",
+    "install into a checkout keeps .gitattributes",
+    "install into a checkout keeps CHANGELOG.md",
+    "install into a checkout keeps .github/workflows",
+    "install into a checkout says it skipped pruning",
+)
 
 
 def skip(name, why):
@@ -85,20 +121,21 @@ with tempfile.TemporaryDirectory() as td:
     run("--project", str(t))
     d = t / ".claude" / "skills" / SKILL
     if have_git():
-        subprocess.run(["git", "init", "-q"], cwd=d, capture_output=True, timeout=60)
-        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, timeout=60)
-        subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
-                        "commit", "-qm", "unpushed"], cwd=d, capture_output=True, timeout=60)
+        git_run("init", "-q", cwd=d)
+        git_run("add", "-A", cwd=d)
+        git_run("-c", "user.email=t@t", "-c", "user.name=t",
+                "commit", "-qm", "unpushed", cwd=d)
         r = run("--project", str(t), "--uninstall")
-        check("uninstall refuses a git checkout (dir survives)", d.is_dir())
-        check("uninstall refuses a git checkout (.git survives)", (d / ".git").is_dir())
-        check("uninstall on a checkout does not traceback", "Traceback" not in (r.stdout + r.stderr))
-        check("uninstall on a checkout explains itself",
+        check(VCS_UNINSTALL_CHECKS[0], d.is_dir())
+        check(VCS_UNINSTALL_CHECKS[1], (d / ".git").is_dir())
+        check(VCS_UNINSTALL_CHECKS[2], "Traceback" not in (r.stdout + r.stderr))
+        check(VCS_UNINSTALL_CHECKS[3],
               "git" in (r.stdout + r.stderr).lower() and r.returncode == 0,
               f"rc={r.returncode}")
         force_rmtree(d)
     else:
-        print("  SKIP git-checkout case (no git)")
+        for missed in VCS_UNINSTALL_CHECKS:
+            skip(missed, "git is not installed, so no checkout can be built")
 
 # ── 1.2 a preserved-notes backup must never be overwritten ───────────────────
 # install -> uninstall -> install -> uninstall used to back the freshly
@@ -149,7 +186,7 @@ if have_git():
         t = pathlib.Path(td)
         run("--project", str(t))
         d = t / ".claude" / "skills" / SKILL
-        subprocess.run(["git", "init", "-q"], cwd=d, capture_output=True, timeout=60)
+        git_run("init", "-q", cwd=d)
         # files a real checkout has that PAYLOAD does not list
         (d / ".gitignore").write_text("references/local-notes.md\n", encoding="utf-8")
         (d / ".gitattributes").write_text("* text=auto eol=lf\n", encoding="utf-8")
@@ -159,14 +196,19 @@ if have_git():
 
         r = run("--project", str(t))          # reinstall over the checkout
 
-        check("install into a checkout keeps .gitignore", (d / ".gitignore").is_file())
-        check("install into a checkout keeps .gitattributes", (d / ".gitattributes").is_file())
-        check("install into a checkout keeps CHANGELOG.md", (d / "CHANGELOG.md").is_file())
-        check("install into a checkout keeps .github/workflows",
+        check(CHECKOUT_PRUNE_CHECKS[0], (d / ".gitignore").is_file())
+        check(CHECKOUT_PRUNE_CHECKS[1], (d / ".gitattributes").is_file())
+        check(CHECKOUT_PRUNE_CHECKS[2], (d / "CHANGELOG.md").is_file())
+        check(CHECKOUT_PRUNE_CHECKS[3],
               (d / ".github" / "workflows" / "test.yml").is_file())
-        check("install into a checkout says it skipped pruning",
+        check(CHECKOUT_PRUNE_CHECKS[4],
               "prun" in (r.stdout + r.stderr).lower())
         force_rmtree(d)
+else:
+    # This block had no else at all: five checks vanished with nothing printed,
+    # so a git-less run reported a clean PASS eleven checks short.
+    for missed in CHECKOUT_PRUNE_CHECKS:
+        skip(missed, "git is not installed, so no checkout can be built")
 
 # ── printed output must survive a legacy console codepage ────────────────────
 # cp437 is the historic cmd.exe default and has no em dash. An em dash in a
@@ -186,9 +228,8 @@ if have_git():
 # of the name of the broken check. Fourth outing for the by-name habit, after
 # the exec-bit guard, shellcheck and NOT_SHIPPED. Enumerate from the repo, and
 # fall back to PAYLOAD so an installed copy still checks what it shipped.
-py_files = subprocess.run(["git", "ls-files", "*.py"], cwd=ROOT,
-                          capture_output=True, text=True, timeout=60)
-if py_files.returncode == 0 and py_files.stdout.split():
+py_files = git_run("ls-files", "*.py", cwd=ROOT)
+if py_files is not None and py_files.returncode == 0 and py_files.stdout.split():
     scan = py_files.stdout.split()
 else:
     # No git - an installed copy. Walk the tree instead; still enumerated,
@@ -248,8 +289,9 @@ def why_not_the_repo():
     So test identity, not availability. This is repo-development machinery; it
     runs only in the repo.
     """
-    r = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=ROOT,
-                       capture_output=True, text=True, timeout=60)
+    r = git_run("rev-parse", "--show-toplevel", cwd=ROOT)
+    if r is None:
+        return "git is not installed, so it cannot enumerate the repo"
     if r.returncode != 0:
         return "not a git checkout, so git cannot enumerate the repo"
     top = pathlib.Path(r.stdout.strip()).resolve()
@@ -259,10 +301,18 @@ def why_not_the_repo():
 
 
 def git_files(*args):
-    r = subprocess.run(["git", "ls-files", *args], cwd=ROOT,
-                       capture_output=True, text=True, timeout=60)
-    return r.stdout.split() if r.returncode == 0 else None
+    r = git_run("ls-files", *args, cwd=ROOT)
+    return r.stdout.split() if r is not None and r.returncode == 0 else None
 
+
+# Named once. The skip loop used to repeat these as literals, so renaming a
+# check left the skip announcing a name that existed nowhere -- the by-name
+# habit again, introduced in the very commit that deleted a hardcoded count for
+# being this exact class.
+DRIFT_CHECKS = (
+    "every tracked file is shipped or explicitly excluded",
+    "a second file in docs/audits/ does not break the guard",
+)
 
 not_the_repo = why_not_the_repo()
 tracked = git_files() if not not_the_repo else None
@@ -279,15 +329,14 @@ if tracked is None or untracked is None:
     # is the same fossil class as a dated filename or a sed line range, and it
     # put a false number inside the machinery added for honesty. Counting
     # itself cannot drift.
-    for missed in ("every tracked file is shipped or explicitly excluded",
-                   "a second file in docs/audits/ does not break the guard"):
+    for missed in DRIFT_CHECKS:
         skip(missed, not_the_repo or "git could not enumerate the repo")
 else:
     # Use install.py's own matcher, so the guard and the exclusion list
     # cannot drift apart about what "excluded" means.
     unaccounted = sorted(f for f in (set(tracked) | set(untracked))
                          if f not in SHIPPED and not installer.is_excluded(f))
-    check("every tracked file is shipped or explicitly excluded", not unaccounted,
+    check(DRIFT_CHECKS[0], not unaccounted,
           f"add to PAYLOAD or NOT_SHIPPED: {unaccounted}")
 
     # Prove the directory form actually holds when a second file lands there --
@@ -300,13 +349,11 @@ else:
             loose = git_files("--others", "--exclude-standard") or []
             leftover = [f for f in loose
                         if f not in SHIPPED and not installer.is_excluded(f)]
-            check("a second file in docs/audits/ does not break the guard",
-                  not leftover, f"{leftover}")
+            check(DRIFT_CHECKS[1], not leftover, f"{leftover}")
         finally:
             probe.unlink()
     else:
-        skip("a second file in docs/audits/ does not break the guard",
-             "docs/audits/ is not present here")
+        skip(DRIFT_CHECKS[1], "docs/audits/ is not present here")
 
 overlap = sorted(f for f in SHIPPED if installer.is_excluded(f))
 check("no file is both shipped and excluded", not overlap, f"{overlap}")
@@ -346,6 +393,54 @@ with tempfile.TemporaryDirectory() as td:
     check("pruning never removes local-notes.md", notes.is_file())
     check("pruning preserves local-notes.md content",
           notes.is_file() and "MY MACHINE FACTS" in notes.read_text(encoding="utf-8"))
+
+# ── nothing may spawn git except through git_run() ───────────────────────────
+# The instance was three unguarded call sites that killed the suite on a
+# machine without git. The CLASS is "a guard exists in this file and the next
+# call site doesn't use it" -- which is how all three got written, twice while
+# fixing git-related findings. Read this file's own source rather than trusting
+# anyone to remember: a fourth raw call cannot land quietly.
+# An AST walk, not a text scan: a substring search answers "does this string
+# appear", which is not the question. The question is whether a call to
+# subprocess.run(["git", ...]) exists outside git_run's body, and only the
+# parse tree knows where a body ends.
+tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+guard = next((n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "git_run"), None)
+inside = set(range(guard.lineno, guard.end_lineno + 1)) if guard else set()
+unguarded = []
+for node in ast.walk(tree):
+    if not isinstance(node, ast.Call):
+        continue
+    fn = node.func
+    if not (isinstance(fn, ast.Attribute) and fn.attr == "run"
+            and isinstance(fn.value, ast.Name) and fn.value.id == "subprocess"):
+        continue
+    if not node.args or not isinstance(node.args[0], ast.List) or not node.args[0].elts:
+        continue
+    head = node.args[0].elts[0]
+    if (isinstance(head, ast.Constant) and head.value == "git"
+            and node.lineno not in inside):
+        unguarded.append(f"line {node.lineno}")
+check("git is spawned only through git_run(), which survives git being absent",
+      guard is not None and not unguarded,
+      f"guard_found={guard is not None} unguarded={unguarded}")
+
+# A skip announced with a bare print() is invisible to the tally, which is how
+# "SKIP git-checkout case (no git)" hid four checks while a fifth block hid
+# five more with no message at all. Skips go through skip() or they do not
+# count -- enforced from the parse tree, not from anyone remembering.
+loose_skips = []
+for node in ast.walk(tree):
+    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == "print" and node.args):
+        continue
+    arg = node.args[0]
+    if isinstance(arg, ast.Constant) and isinstance(arg.value, str) \
+            and arg.value.strip().startswith("SKIP"):
+        loose_skips.append(f"line {node.lineno}")
+check("every skip goes through skip(), never a bare print", not loose_skips,
+      f"unrecorded: {loose_skips}")
 
 print()
 bad = [n for n, ok, _ in results if not ok]
