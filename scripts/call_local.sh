@@ -100,15 +100,19 @@ with open(os.environ["BODY_FILE"], "w", encoding="utf-8") as f:
 # stdout: the caller reads this through a command substitution, so a global
 # set in here would not survive the subshell.
 do_post() {
-    local path="$1" code rc=0
+    local path="$1" code rc=0 out secs
     shift
     # --data-binary @FILE, never -d "$BODY": passing the body as an argument is
     # what hits the OS argv ceiling on a large prompt.
-    code=$(curl -sS -o "$RESP_FILE" -w '%{http_code}' \
+    # time_total rides along so the caller can tell a CONNECT timeout from a
+    # whole-call timeout: curl reports exit 28 for both, and naming the wrong
+    # knob sends someone to raise a limit that was never the problem.
+    out=$(curl -sS -o "$RESP_FILE" -w '%{http_code} %{time_total}' \
         --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
         -X POST "$BASE$path" -H 'content-type: application/json' "$@" \
         --data-binary "@$BODY_FILE") || rc=$?
-    echo "${code:-000} $rc"
+    code="${out%% *}"; secs="${out##* }"
+    echo "${code:-000} $rc ${secs:-0}"
 }
 
 # CALL_LOCAL_DIALECT: auto (default) | anthropic | openai
@@ -124,19 +128,19 @@ DIALECT="${CALL_LOCAL_DIALECT:-auto}"
 
 case "$DIALECT" in
     openai)
-        read -r CODE CURL_RC <<<"$(do_post /v1/chat/completions)"
+        read -r CODE CURL_RC SECS <<<"$(do_post /v1/chat/completions)"
         ;;
     anthropic)
-        read -r CODE CURL_RC <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
+        read -r CODE CURL_RC SECS <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
         ;;
     auto)
-        read -r CODE CURL_RC <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
+        read -r CODE CURL_RC SECS <<<"$(do_post /v1/messages -H 'anthropic-version: 2023-06-01')"
         # 404, 405 and 501 all mean "this server doesn't serve that endpoint" —
         # try the OpenAI dialect before giving up. Matching only 404 would
         # strand us on servers that answer an unknown path with 405. Anything
         # else is a genuine failure and retrying would just obscure it.
         case "$CODE" in
-            404|405|501) read -r CODE CURL_RC <<<"$(do_post /v1/chat/completions)" ;;
+            404|405|501) read -r CODE CURL_RC SECS <<<"$(do_post /v1/chat/completions)" ;;
         esac
         ;;
     *)
@@ -147,7 +151,14 @@ esac
 
 if [ "$CODE" != "200" ]; then
     case "$CURL_RC" in
-        28)  echo "call_local.sh: timed out after ${TIMEOUT}s talking to $BASE (raise CALL_LOCAL_TIMEOUT)" >&2 ;;
+        28)  # Which ceiling did we hit? If we gave up around the connect
+             # timeout, the connection never opened -- a different problem and
+             # a different knob than a slow generation.
+             if python3 -c "import sys;sys.exit(0 if float('${SECS:-0}') < float('$CONNECT_TIMEOUT')+1 else 1)" 2>/dev/null; then
+                 echo "call_local.sh: could not connect to $BASE within ${CONNECT_TIMEOUT}s (host unreachable, or raise CALL_LOCAL_CONNECT_TIMEOUT)" >&2
+             else
+                 echo "call_local.sh: timed out after ${TIMEOUT}s talking to $BASE (raise CALL_LOCAL_TIMEOUT)" >&2
+             fi ;;
         6|7) echo "call_local.sh: no server reachable at $BASE" >&2 ;;
         0)   echo "call_local.sh: HTTP $CODE from $BASE" >&2 ;;
         *)   echo "call_local.sh: curl failed (exit $CURL_RC) talking to $BASE" >&2 ;;
