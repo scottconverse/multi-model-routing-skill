@@ -42,9 +42,17 @@ systems. **Every path below was verified by a live call before shipping.**
 - Recorded that a call through a bridge spends the **callee's** quota —
   Antigravity → Codex bills Codex. Useful when one meter is tight, but it
   should be a deliberate choice, and the skill now says to name the meter.
-- Four Antigravity models verified with live calls rather than taken from a
-  list: `gemini-3.6-flash-low` (4.5 s), `claude-opus-4-6-thinking` (8 s),
-  `claude-sonnet-4-6` (5 s), `gpt-oss-120b-medium` (5 s).
+- **All 11 Antigravity models exercised with live calls**, not taken from a
+  list: the three `gemini-3.6-flash` tiers and two of the `3.5` tiers at ~4 s,
+  `gemini-3.5-flash-high` at 60 s (a cold outlier worth budgeting for), both
+  `gemini-3.1-pro` tiers at 7 s, `claude-sonnet-4-6` 5 s,
+  `claude-opus-4-6-thinking` 8 s, `gpt-oss-120b-medium` 5 s.
+- **The reverse bridge, also verified: `codex mcp add`.** Registering Chrome
+  DevTools MCP with Codex exposed 20+ browser-automation tools to it in a live
+  run. A tool server built for one agent ecosystem is reusable by another, so
+  choosing a backend on cost or capability doesn't cost you your tooling.
+  Both directions now proven on real hardware: Antigravity→Codex (17.9 s) and
+  Codex→Chrome DevTools (21.8 s).
 
 ### Changed
 - **Model choice is now the agent's decision, made on capability.** The old

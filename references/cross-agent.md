@@ -52,18 +52,25 @@ agy -p "prompt" --model gemini-3.6-flash-low
 *Verified: returned `ANTIGRAVITY-OK` in **4.5 s**, exit 0. Fastest backend on
 this machine — faster than Codex (34 s) and faster than a cold local model.*
 
-**Four models personally verified** with live calls on 2026-08-08, not just
-read off `agy models`:
+**All 11 models verified** with live calls on 2026-08-08 — every one exercised,
+not read off `agy models`:
 
 | Model | Round trip |
 |---|---|
-| `gemini-3.6-flash-low` | 4.5 s |
-| `claude-opus-4-6-thinking` | 8 s |
+| `gemini-3.6-flash-low` / `-medium` / `-high` | 4–4.5 s |
+| `gemini-3.5-flash-low` / `-medium` | 4 s |
+| `gemini-3.5-flash-high` | 60 s (cold outlier; others were 4 s) |
+| `gemini-3.1-pro-low` / `-high` | 7 s |
 | `claude-sonnet-4-6` | 5 s |
+| `claude-opus-4-6-thinking` | **8 s** |
 | `gpt-oss-120b-medium` | 5 s |
 
 Claude Opus 4.6 answering in 8 s **on a meter separate from Claude quota** is
 the single most useful fact here when Claude usage is running tight.
+
+The Gemini tiers are close enough in latency that the `-high`/`-medium`/`-low`
+suffix should be chosen on reasoning depth, not speed — the exception was one
+60 s cold start, so budget for a slow first call per model.
 
 ### Structured output — the best batch surface here
 
@@ -206,8 +213,40 @@ Note that a tool call through the bridge spends **Codex** quota, not
 Antigravity's. Routing through MCP changes which meter you're on — that's a
 feature, but be deliberate about it.
 
-- **`codex mcp`** manages MCP servers Codex itself can reach — the reverse
-  direction, letting Codex use other agents' tools.
+### Wiring the reverse direction: Codex → another ecosystem's tools
+
+`codex mcp` manages the servers Codex itself reaches:
+
+```bash
+codex mcp list                       # what Codex can already reach
+codex mcp add <name> -- <command>    # stdio server
+codex mcp add <name> --url <URL> --bearer-token-env-var <VAR>   # HTTP server
+codex mcp get <name> / remove <name>
+```
+
+*Verified 2026-08-08:* adding Antigravity's Chrome DevTools MCP server to
+Codex —
+
+```bash
+codex mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest
+```
+
+— made **20+ browser-automation tools** visible to Codex in a live run
+(`click`, `type_text`, `fill`, `take_screenshot`, `list_network_requests`,
+`list_console_messages`, `performance_stop_trace`, `new_page`, `emulate`, …),
+confirmed in 21.8 s. A tool server built for one agent ecosystem is reusable by
+another; MCP is the common denominator.
+
+**Both directions are proven on this machine:**
+
+| Direction | Mechanism | Evidence |
+|---|---|---|
+| Antigravity → Codex | `~/.gemini/config/mcp_config.json` | live call returned in 17.9 s |
+| Codex → Chrome DevTools | `codex mcp add` | 20+ tools listed in 21.8 s |
+
+A useful consequence: a browser-automation or code-graph server registered once
+is available to whichever agent you route to, so picking a backend by
+cost or capability doesn't cost you your tools.
 
 ## 6. Skills are portable across harnesses
 
