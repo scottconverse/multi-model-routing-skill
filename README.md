@@ -70,6 +70,9 @@ docs/MANUAL.md              the user manual — install, routing rule, every
                              backend, troubleshooting, honest limits, FAQ
 docs/index.html             the landing page, published via GitHub Pages
 CHANGELOG.md                what changed, and why
+install.py                  installs the skill into Claude Code and/or
+                             Antigravity; --list for a dry run
+CONTRIBUTING.md             the evidence rule: claims are backed by a run
 ```
 
 ## Requirements

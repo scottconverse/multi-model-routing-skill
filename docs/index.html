@@ -208,7 +208,8 @@
     </tbody>
   </table>
   </div>
-  <p style="margin-top:18px">The consequence is the useful part: <strong>a tool server registered once is reachable from whichever agent you route to</strong> — so choosing a backend on cost or capability doesn't cost you your tooling. One gotcha that cost real time is written down: register the absolute path to the actual executable, never a PATH shim, because <code>.cmd</code> wrappers fail to spawn under stdio MCP.</p>
+  <p style="margin-top:18px"><strong>Registration is per-agent, not global.</strong> Adding a server to Codex does not make it appear in Antigravity or Claude Code — each keeps its own config and each must be wired separately. What you reuse is the server itself, so the second and third registrations are a one-line command rather than new work. Never assume a tool is present because another agent has it.</p>
+  <p class="muted">One gotcha that cost real time: on Windows, prefer the absolute path to the actual executable over a PATH shim, since <code>.cmd</code> wrappers can fail to spawn under stdio MCP.</p>
   <p class="muted">Both verified by live calls, not read off a help page. One boundary worth stating precisely: your agent <em>calling</em> local models is the core path here and it works — that's what the bundled script does. What doesn't work is replacing an agent's own inference backend with a local server: protocol-compatible, but ~42&nbsp;s of prompt processing per call on a small model, several calls per turn. Calling local models, yes. Being one, no. Documented as a dead end so nobody re-derives it.</p>
 </section>
 

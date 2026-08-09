@@ -1,0 +1,79 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  suite:
+    name: call_local.sh suite (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is not decoration: every defect this repo has shipped was
+        # Windows-specific (CreateProcess can't exec a .sh, bash swallowing
+        # backslashes, the WSL shim being the wrong bash, CRLF via autocrlf).
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run suite
+        shell: bash
+        run: python3 tests/test_call_local.py
+
+  lint:
+    name: shell + docs sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck call_local.sh
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning scripts/call_local.sh
+
+      - name: call_local.sh must stay executable
+        run: |
+          test -x scripts/call_local.sh \
+            || { echo "scripts/call_local.sh lost its +x bit"; exit 1; }
+
+      - name: no CRLF in tracked text files
+        run: |
+          if grep -rlIU $'\r' --exclude-dir=.git . ; then
+            echo "CRLF found — .gitattributes should pin the tree to LF"; exit 1
+          fi
+          echo "all LF"
+
+      - name: private notes must never be committed
+        run: |
+          if git ls-files --error-unmatch references/local-notes.md 2>/dev/null; then
+            echo "references/local-notes.md is TRACKED — it holds machine and"
+            echo "account specifics and must stay git-ignored."
+            exit 1
+          fi
+          test -f references/local-notes.example.md \
+            || { echo "the template is missing"; exit 1; }
+          echo "private notes correctly untracked, template present"
+
+      - name: every referenced file exists
+        run: |
+          fail=0
+          for f in $(grep -rhoE 'references/[a-z0-9._-]+\.md' \
+                       SKILL.md README.md docs/*.md references/*.md | sort -u); do
+            # local-notes.md is generated per machine, never in the repo
+            [ "$f" = "references/local-notes.md" ] && continue
+            [ -f "$f" ] || { echo "referenced but missing: $f"; fail=1; }
+          done
+          exit $fail
+
+      - name: install.py dry run must not touch anything
+        run: |
+          python3 install.py --list > /dev/null
+          git diff --exit-code

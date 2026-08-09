@@ -231,6 +231,11 @@ Codex —
 codex mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest
 ```
 
+⚠️ Note the tension with the shim warning above: on Windows `npx` *is* a `.cmd`
+wrapper. It worked here — Codex spawns it fine — but if a registration using
+`npx` silently produces no tools, that's the first thing to replace with an
+absolute path to `node` plus the package's entry script.
+
 — made **20+ browser-automation tools** visible to Codex in a live run
 (`click`, `type_text`, `fill`, `take_screenshot`, `list_network_requests`,
 `list_console_messages`, `performance_stop_trace`, `new_page`, `emulate`, …),
@@ -255,9 +260,16 @@ Codex as a native tool rather than shelling out and parsing stdout.
 | Antigravity → Codex | `~/.gemini/config/mcp_config.json` | live call returned in 17.9 s |
 | Codex → Chrome DevTools | `codex mcp add` | 20+ tools listed in 21.8 s |
 
-A useful consequence: a browser-automation or code-graph server registered once
-is available to whichever agent you route to, so picking a backend by
-cost or capability doesn't cost you your tools.
+⚠️ **MCP registration is per-agent, not global.** Adding a server to Codex does
+NOT make it appear in Antigravity or Claude Code. Each keeps its own config —
+`~/.codex/config.toml`, `~/.gemini/config/mcp_config.json`, `~/.claude.json` —
+and each must be wired separately. There is no shared registry.
+
+What you do get is reuse of the server *itself*: the same MCP binary serves
+every client, so the second and third registrations are a one-line command
+rather than new work. Budget one registration per agent you actually route to,
+and never assume a tool is present just because another agent has it — check
+first, or the call fails at runtime.
 
 ## 6. Skills are portable across harnesses
 

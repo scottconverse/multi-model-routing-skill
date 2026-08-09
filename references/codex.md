@@ -75,7 +75,7 @@ believe is wrong is free; probing broadly is not.
 | Command | Use it for |
 |---|---|
 | `codex exec` | the general non-interactive workhorse |
-| `codex review` | **purpose-built non-interactive code review** — prefer over hand-rolling a review prompt through `exec` |
+| `codex review` | **purpose-built DIFF review** — reviews uncommitted changes, a commit, or a branch. Not a general file reviewer; see the syntax trap below. |
 | `codex mcp-server` | run Codex **as an MCP server over stdio** — the native integration path, instead of shelling out and scraping stdout |
 | `codex mcp` | manage external MCP servers Codex itself can reach |
 | `codex doctor` | diagnose install, config, auth, runtime — also the cheapest discovery probe |
@@ -83,6 +83,26 @@ believe is wrong is free; probing broadly is not.
 | `codex apply` | apply the agent's last diff as `git apply` |
 | `codex resume --last` / `codex fork` | continue or branch a previous session |
 | `codex sandbox` | run a command inside Codex's sandbox |
+
+### `codex review` syntax traps — all three cost a failed run here
+
+`review` does **not** share `exec`'s flags. Verified 2026-08-08:
+
+1. **`-m` is rejected** — `error: unexpected argument '-m' found`. Pass the
+   model as `-c model="..."` instead.
+2. **`-s/--sandbox` doesn't exist either.** Its whole surface is `-c`,
+   `--uncommitted`, `--base <BRANCH>`, `--commit <SHA>`, `--title`,
+   `--enable`/`--disable`, `--strict-config`.
+3. **A free-text prompt is mutually exclusive with `--commit`** —
+   `error: the argument '--commit <SHA>' cannot be used with '[PROMPT]'`. Pick
+   a diff selector *or* a prompt, not both.
+
+It reviews a **diff**, not arbitrary files. To review a file that isn't part of
+a diff, `codex exec` is the correct tool — `review` has no way to target one.
+
+*Worth the call:* run against a real commit here, it returned two genuine
+documentation defects with file:line references and P-level severities that
+`exec` had not surfaced. Slow, though — 5 m 54 s.
 
 ## 4. `codex exec` flags that matter here
 
@@ -103,8 +123,11 @@ believe is wrong is free; probing broadly is not.
 ### Canonical calls
 
 ```bash
-# review — use the purpose-built command
-codex review -m gpt-5.6-sol -s read-only "Audit for correctness and security"
+# review — DIFF review. Note: NO -m, NO -s. Model goes through -c model=...
+codex review -c model="gpt-5.6-sol" --commit <SHA>      # a specific commit
+codex review -c model="gpt-5.6-sol" --uncommitted       # working tree
+codex review -c model="gpt-5.6-sol" --base main         # vs a branch
+codex review -c model="gpt-5.6-sol" "Correctness only"  # free-text, no selector
 
 # batch item with structured output -- note the stdin redirect, it is required
 codex exec -m gpt-5.6-luna -s read-only --skip-git-repo-check \

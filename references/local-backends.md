@@ -102,9 +102,30 @@ Free RAM is the real constraint, not disk. Measured here: 25.8 GB total, and
 free RAM swung between 3.0 GB and 14.0 GB during a single session depending on
 what was loaded.
 
+**A model that "almost fits" does not fit.** Measured: `google/gemma-4-26b-a4b`
+is 17.99 GB and free RAM was 17.5 GB. It did not load — the request thrashed
+and `call_local.sh` timed out at 300 s having received zero bytes. Half a
+gigabyte short cost six minutes and produced nothing.
+
+That's the timeout earning its place: without it the call would have hung
+indefinitely inside a batch. The error names the cause and the knob
+(`raise CALL_LOCAL_TIMEOUT`), which is what a caller needs.
+
+Verified sizes on this machine:
+
+| Model | Size | Result |
+|---|---|---|
+| `qwen2.5:7b` | 4.7 GB | fine, fast |
+| `qwen2.5-coder-14b-instruct` | 8.99 GB | works — 25.9 s including load |
+| `gemma4:e4b` | 9.6 GB | works |
+| `google/gemma-4-26b-a4b` | 17.99 GB | **fails to load at 17.5 GB free** |
+
 - Check free RAM before choosing a size; a model that barely fits will thrash.
+- Leave real headroom — the model size is a floor, not the total requirement.
 - `lms unload --all` frees LM Studio's held models; it recovered 7.7 GB in one
-  step during testing.
+  step, and later took the machine from **2.0 GB free back to 14.3 GB**. Free
+  RAM drifts down as models accumulate — re-check it, don't trust a reading
+  from earlier in the session.
 - LM Studio JIT-loads: `lms ps` can show nothing loaded while the server still
   answers, because it loads on first request. That's why a first call is slow.
 - Cold start is real — 10–15 s for a 5–9 GB model, and one Antigravity model

@@ -223,8 +223,12 @@ silently doesn't work.
 Antigravity → Codex bills Codex, not Antigravity. That's useful when one meter
 is tight — just be deliberate, and say which meter you're spending.
 
-The payoff: a tool server registered once is reachable from whichever agent you
-route to, so picking a backend on cost or capability doesn't cost you tooling.
+⚠️ **Registration is per-agent, not global.** Adding a server to Codex does not
+make it appear in Antigravity or Claude Code — each keeps its own config
+(`~/.codex/config.toml`, `~/.gemini/config/mcp_config.json`, `~/.claude.json`)
+and each must be wired separately. What you reuse is the server itself, so the
+second and third registrations are a one-line command rather than new work.
+Never assume a tool is present just because another agent has it.
 
 ---
 
