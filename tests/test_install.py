@@ -18,15 +18,21 @@ SKILL = "multi-model-routing"
 
 
 def force_rmtree(p):
-    """Remove a tree even when git has marked objects read-only (Windows)."""
-    def onexc(func, path, exc):
-        try:
-            os.chmod(path, stat.S_IWRITE)
-            func(path)
-        except Exception:
-            pass
-    if p.exists():
-        shutil.rmtree(p, onexc=onexc)
+    """Remove a tree even when git has marked objects read-only (Windows).
+
+    Clears the read-only bits up front rather than using rmtree's error hook:
+    the hook is spelled `onerror` before Python 3.12 and `onexc` after, and CI
+    runs 3.11 while this machine runs 3.13. Walking first works on both.
+    """
+    if not p.exists():
+        return
+    for root, dirs, files in os.walk(p):
+        for name in dirs + files:
+            try:
+                os.chmod(os.path.join(root, name), stat.S_IWRITE)
+            except OSError:
+                pass
+    shutil.rmtree(p, ignore_errors=True)
 
 
 def run(*args, cwd=None):
