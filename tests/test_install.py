@@ -153,6 +153,13 @@ if have_git():
 # cp437 is the historic cmd.exe default and has no em dash. An em dash in a
 # print() raised UnicodeEncodeError mid-install, after files had been copied,
 # leaving a partial install. cp1252 hides it: that codepage HAS the character.
+#
+# SCOPE, deliberately: the rule is "printed strings are ASCII", NOT "files are
+# ASCII". Comments never reach a stream, so they are exempt and are skipped
+# below. Seven non-ASCII characters remain in comments across install.py and
+# call_local.sh and that is fine. Do not "finish the job" on them — it hardens
+# nothing, and widening this check would make it fail for a reason that cannot
+# hurt anyone.
 src = (ROOT / "install.py").read_text(encoding="utf-8")
 printed = []
 for line in src.splitlines():

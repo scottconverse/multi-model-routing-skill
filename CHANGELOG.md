@@ -37,6 +37,22 @@ have destroyed a repository.
   imports `install.py`. Untracked, and `__pycache__/` plus `*.pyc` are now
   ignored.
 
+  Worth keeping, because it generalizes: **the guard created the artifact it
+  then had to catch.** The drift test imports `install.py` to read its payload
+  lists; importing writes a `.pyc`; and the extension filter in that same
+  test's first version — `.md`, `.sh`, `.py` — let the `.pyc` through. A test
+  that touches the tree it audits changes what it is auditing, and its blind
+  spots are exactly where its own leavings land. If a check reads the working
+  tree, ask what it *writes* there, and make sure the check can see that too.
+
+### On the ASCII rule
+The fix is scoped to **printed strings, not files.** Comments never reach a
+stream; seven non-ASCII characters remain in comments across `install.py` and
+`call_local.sh`, and they should stay. Widening the check to whole files would
+fail for a reason that cannot affect anyone, and a check that cries wolf gets
+switched off. `tests/test_install.py` scopes itself to lines that print, on
+purpose.
+
 ### Verified
 Against the real checkout on this machine: `install.py --app claude` reports
 `skipped pruning: .git/ is present`, with 20 tracked files before and after and

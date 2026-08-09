@@ -48,6 +48,17 @@ each one is now a case in it.
   `call_local.sh` is rejected outright by bash, and Windows clones default to
   `core.autocrlf=true`.
 - **`scripts/call_local.sh` keeps its executable bit** (mode `100755`).
+- **Printed strings stay ASCII.** `cmd.exe` defaults to cp437, which has no em
+  dash; one in a `print()` raised `UnicodeEncodeError` *mid-install*, after
+  files had been copied. cp1252 hides this because that codepage does have the
+  character — so "it looked fine on my machine" proves nothing here.
+
+  **The rule is "printed strings are ASCII", not "files are ASCII."** Comments
+  never reach a stream and are exempt; seven non-ASCII characters live in
+  comments today and should stay there. Don't widen the check to whole files —
+  it would fail for a reason that cannot affect anyone, and a test that cries
+  wolf gets disabled. The check in `tests/test_install.py` scopes itself to
+  lines that print, on purpose.
 
 CI enforces all three, plus shellcheck and a check that every `references/*.md`
 mentioned in the docs actually exists.
