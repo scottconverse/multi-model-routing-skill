@@ -6,6 +6,7 @@ Every case here exists because of a real defect. Run:
 """
 import os
 import pathlib
+import re
 import shutil
 import stat
 import subprocess
@@ -49,11 +50,29 @@ def have_git():
 
 
 results = []
+skipped = []
 
 
 def check(name, cond, detail=""):
     results.append((name, bool(cond), detail))
-    print(f"  {'ok  ' if cond else 'FAIL'} {name}" + (f"  — {detail}" if detail and not cond else ""))
+    # ASCII only. The em dash that used to sit here is absent from cp437, the
+    # historic cmd.exe codepage -- and it sat in the FAILURE branch, so the
+    # harness raised UnicodeEncodeError on precisely the run that had bad news
+    # to deliver, replacing the name of the broken check with a traceback about
+    # character encoding. Same defect install.py was fixed for; it survived
+    # here because the guard enforcing the rule read install.py BY NAME.
+    print(f"  {'ok  ' if cond else 'FAIL'} {name}" + (f"  - {detail}" if detail and not cond else ""))
+
+
+def skip(name, why):
+    """Record a check that could not run, and say so.
+
+    A skipped check must never be indistinguishable from a passing one. The
+    payload drift guard silently vanished in installed copies and the suite
+    still printed a clean PASS, one check shorter, with nothing to notice.
+    """
+    skipped.append(name)
+    print(f"  SKIP {name} - {why}")
 
 
 # ── 1.1 uninstall must never destroy a git checkout ──────────────────────────
@@ -156,25 +175,44 @@ if have_git():
 #
 # SCOPE, deliberately: the rule is "printed strings are ASCII", NOT "files are
 # ASCII". Comments never reach a stream, so they are exempt and are skipped
-# below. Seven non-ASCII characters remain in comments across install.py and
-# call_local.sh and that is fine. Do not "finish the job" on them — it hardens
+# below. Non-ASCII characters remain in comments across install.py and
+# call_local.sh and that is fine. Do not "finish the job" on them - it hardens
 # nothing, and widening this check would make it fail for a reason that cannot
 # hurt anyone.
-src = (ROOT / "install.py").read_text(encoding="utf-8")
-printed = []
-for line in src.splitlines():
-    s = line.strip()
-    if s.startswith("#"):
-        continue                      # comments are never printed
-    if "print(" in s or "actions.append(" in s or "sys.exit(" in s or 'return dest, [' in s:
-        printed.append(line)
+#
+# EVERY shipped .py, never one by name. Reading only install.py was the bug:
+# the test harness itself printed em dashes in its own failure branch for two
+# releases, so a real failure on cmd.exe surfaced as UnicodeEncodeError instead
+# of the name of the broken check. Fourth outing for the by-name habit, after
+# the exec-bit guard, shellcheck and NOT_SHIPPED. Enumerate from the repo, and
+# fall back to PAYLOAD so an installed copy still checks what it shipped.
+py_files = subprocess.run(["git", "ls-files", "*.py"], cwd=ROOT,
+                          capture_output=True, text=True, timeout=60)
+if py_files.returncode == 0 and py_files.stdout.split():
+    scan = py_files.stdout.split()
+else:
+    # No git - an installed copy. Walk the tree instead; still enumerated,
+    # never a hand-kept list of names.
+    scan = sorted(p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*.py")
+                  if "__pycache__" not in p.parts)
+PRINTS = ("print(", "actions.append(", "sys.exit(", "return dest, [")
 bad = []
-for line in printed:
-    try:
-        line.encode("cp437")
-    except UnicodeEncodeError as e:
-        bad.append(f"{e.object[e.start:e.end]!r} in: {line.strip()[:60]}")
-check("printed strings are cp437-safe", not bad, "; ".join(bad[:3]))
+for rel in scan:
+    f = ROOT / rel
+    if not f.is_file():
+        continue
+    for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+        s = line.strip()
+        if s.startswith("#"):
+            continue                  # comments are never printed
+        if not any(tok in s for tok in PRINTS):
+            continue
+        try:
+            line.encode("cp437")
+        except UnicodeEncodeError as e:
+            bad.append(f"{rel}:{n} {e.object[e.start:e.end]!r}")
+check(f"printed strings are cp437-safe across all {len(scan)} shipped .py files",
+      not bad, "; ".join(bad[:4]))
 
 # ── payload drift guard ──────────────────────────────────────────────────────
 # PAYLOAD is hand-maintained, so a new reference doc could silently fail to
@@ -190,50 +228,78 @@ SHIPPED = set(installer.PAYLOAD)
 # or the two drift apart and the guard stops meaning anything. Every tracked
 # file is named in one list or the other -- .gitignore, .gitattributes,
 # docs/index.html, docs/.nojekyll and the workflow included.
-tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
-                         text=True, timeout=60).stdout.split()
+def git_files(*args):
+    """The file list git reports, or None when this is not a checkout.
+
+    `git ls-files` outside a repository exits 128 with EMPTY stdout. Ignoring
+    the return code turned "git cannot answer" into "nothing is unaccounted
+    for", so the drift guard printed ok in every installed copy -- which is
+    exactly where tests/ ships, for users to verify their own install. Proven:
+    with a junk file sitting in references/, the guard still said ok.
+    An empty list must never stand in for an unanswerable question.
+    """
+    r = subprocess.run(["git", "ls-files", *args], cwd=ROOT,
+                       capture_output=True, text=True, timeout=60)
+    return r.stdout.split() if r.returncode == 0 else None
+
+
+tracked = git_files()
 # Untracked-but-not-ignored files count too. git ls-files sees only what is
 # already staged or committed, so a brand-new reference doc stayed invisible to
 # this guard until someone ran `git add` -- CI caught it, but only a step later
 # than the author needed. --others --exclude-standard closes that gap while
 # still respecting .gitignore, so local-notes.md and __pycache__ stay exempt.
-untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
-                           cwd=ROOT, capture_output=True, text=True,
-                           timeout=60).stdout.split()
-# Use install.py's own matcher, so the guard and the exclusion list
-# cannot drift apart about what "excluded" means.
-unaccounted = sorted(f for f in (set(tracked) | set(untracked))
-                     if f not in SHIPPED and not installer.is_excluded(f))
-check("every tracked file is shipped or explicitly excluded", not unaccounted,
-      f"add to PAYLOAD or NOT_SHIPPED: {unaccounted}")
+untracked = git_files("--others", "--exclude-standard")
+
+if tracked is None or untracked is None:
+    skip("payload drift guard (3 checks)",
+         "not a git checkout, so git ls-files cannot enumerate the repo")
+else:
+    # Use install.py's own matcher, so the guard and the exclusion list
+    # cannot drift apart about what "excluded" means.
+    unaccounted = sorted(f for f in (set(tracked) | set(untracked))
+                         if f not in SHIPPED and not installer.is_excluded(f))
+    check("every tracked file is shipped or explicitly excluded", not unaccounted,
+          f"add to PAYLOAD or NOT_SHIPPED: {unaccounted}")
+
+    # Prove the directory form actually holds when a second file lands there --
+    # the failure mode a literal filename entry would have had.
+    audits = ROOT / "docs" / "audits"
+    if audits.is_dir():
+        probe = audits / "audit-lite-probe-9999-12-31.md"
+        probe.write_text("probe\n", encoding="utf-8")
+        try:
+            loose = git_files("--others", "--exclude-standard") or []
+            leftover = [f for f in loose
+                        if f not in SHIPPED and not installer.is_excluded(f)]
+            check("a second file in docs/audits/ does not break the guard",
+                  not leftover, f"{leftover}")
+        finally:
+            probe.unlink()
+    else:
+        skip("a second file in docs/audits/ does not break the guard",
+             "docs/audits/ is not present here")
 
 overlap = sorted(f for f in SHIPPED if installer.is_excluded(f))
 check("no file is both shipped and excluded", not overlap, f"{overlap}")
 
 # Exclusions must be patterns, not names. A literal filename means the next
 # file added beside it fails this guard and forces an unrelated edit -- the
-# by-name habit that has already cost this repo three times.
+# by-name habit that has already cost this repo four times.
 literal_files = [e for e in installer.NOT_SHIPPED
                  if not e.endswith("/") and "/" in e and e.count("/") >= 2]
 check("no exclusion names a file inside a nested directory", not literal_files,
       f"prefer a trailing-slash directory entry: {literal_files}")
 
-# Prove the directory form actually holds when a second file lands there --
-# the failure mode a literal filename entry would have had.
-audits = ROOT / "docs" / "audits"
-if audits.is_dir():
-    probe = audits / "audit-lite-probe-9999-12-31.md"
-    probe.write_text("probe\n", encoding="utf-8")
-    try:
-        loose = subprocess.run(
-            ["git", "ls-files", "--others", "--exclude-standard"], cwd=ROOT,
-            capture_output=True, text=True, timeout=60).stdout.split()
-        leftover = [f for f in loose
-                    if f not in SHIPPED and not installer.is_excluded(f)]
-        check("a second file in docs/audits/ does not break the guard",
-              not leftover, f"{leftover}")
-    finally:
-        probe.unlink()
+# Depth was the wrong property to test. It caught the dated audit report only
+# because that report happened to sit two directories down; the identical
+# fossil at docs/ or the repo root sailed through (measured). What actually
+# makes an entry a fossil is the date in it, at any depth. CHANGELOG.md and
+# .gitignore are legitimate literal names, which is why this tests for the
+# date rather than banning literals outright.
+dated = [e for e in installer.NOT_SHIPPED if re.search(r"\d{4}-\d{2}-\d{2}", e)]
+check("no exclusion entry carries a date", not dated,
+      f"exclude the directory instead: {dated}")
 
 missing = sorted(rel for rel in installer.PAYLOAD if not (ROOT / rel).is_file())
 check("every PAYLOAD entry exists in the repo", not missing, f"{missing}")
@@ -255,7 +321,11 @@ with tempfile.TemporaryDirectory() as td:
 
 print()
 bad = [n for n, ok, _ in results if not ok]
+# Skips are reported in the tally, never swallowed. This suite used to print a
+# clean "PASS: 21" in an installed copy and "PASS: 22" in the repo, with
+# nothing to say which check had gone missing or why.
+tail = f" ({len(skipped)} skipped: {'; '.join(skipped)})" if skipped else ""
 if bad:
-    print(f"FAIL: {len(bad)}/{len(results)} — {'; '.join(bad)}")
+    print(f"FAIL: {len(bad)}/{len(results)} - {'; '.join(bad)}{tail}")
     sys.exit(1)
-print(f"PASS: {len(results)} install.py checks")
+print(f"PASS: {len(results)} install.py checks{tail}")

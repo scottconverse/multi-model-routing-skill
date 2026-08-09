@@ -108,7 +108,10 @@ unaffected.
 ```bash
 scripts/benchmarks.sh --open        # best open-weights models
 scripts/benchmarks.sh --measure coding
+scripts/benchmarks.sh --model deepseek --limit 10
 ```
+
+`--help` lists every flag; `references/benchmarks.md` has the full table.
 
 Rankings come from [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks) —
 a non-profit publishing under **CC-BY 4.0**, no account and no API key. The

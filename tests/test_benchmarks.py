@@ -78,7 +78,10 @@ results = []
 
 def check(name, cond, detail=""):
     results.append((name, bool(cond)))
-    print(f"  {'ok  ' if cond else 'FAIL'} {name}" + (f"  — {detail}" if detail and not cond else ""))
+    # ASCII only -- an em dash here is absent from cp437 (the historic cmd.exe
+    # codepage) and sat in the FAILURE branch, so the harness raised
+    # UnicodeEncodeError on exactly the run that had something to report.
+    print(f"  {'ok  ' if cond else 'FAIL'} {name}" + (f"  - {detail}" if detail and not cond else ""))
 
 
 CACHE = make_cache()
@@ -176,6 +179,43 @@ check("--help names the real cache variable",
       "BENCHMARKS_CACHE" in r.stdout and "CALL_LOCAL_CACHE" not in r.stdout,
       r.stdout[-200:])
 
+# --help completeness was enforced against the parser; DOCUMENTATION
+# completeness was not, and that is the whole reason --limit and --refresh
+# reached no reader for a release while being fully implemented, validated and
+# help-documented. Same extraction, aimed at the reference the skill tells the
+# agent to load. README.md and docs/index.html are summary and marketing
+# surfaces and are deliberately exempt -- completeness is the contract only
+# where a reader goes to look a flag up.
+#
+# A bare `flag in doc` substring is NOT enough, and this was caught by
+# deliberately deleting the --limit row from the reference table: the check
+# stayed GREEN, because the sentence introducing the table names --limit too.
+# Prose about a flag is not documentation of a flag. Anchor to the shape each
+# surface actually uses -- a table cell in the reference, a command line in the
+# manual -- so only the real entry satisfies it.
+DOC_SURFACES = (
+    ("references/benchmarks.md", "| `{flag}"),      # a row in the flag table
+    ("docs/MANUAL.md",           "benchmarks.sh {flag}"),   # a runnable example
+)
+for doc_rel, shape in DOC_SURFACES:
+    doc = (ROOT / doc_rel).read_text(encoding="utf-8")
+    undoc_flags = [f for f in accepted if shape.format(flag=f) not in doc]
+    check(f"{doc_rel} documents every flag the parser accepts", not undoc_flags,
+          f"accepted={accepted} missing={undoc_flags} (looking for {shape!r})")
+
+# --- missing values must read like this script, not like bash ---------------
+# `${2:?...}` answered these with "benchmarks.sh: line 45: 2: --measure needs a
+# value": a positional parameter the user never typed, plus a line number that
+# drifts with every edit above it.
+for flag in ("--measure", "--model", "--limit"):
+    r = run(flag, cache=CACHE)
+    ok = (r.returncode == 1
+          and f"benchmarks.sh: {flag} needs a value" in r.stderr
+          and "line " not in r.stderr
+          and "Traceback" not in (r.stdout + r.stderr))
+    check(f"{flag} with no value is rejected in the script's own voice", ok,
+          f"rc={r.returncode} err={r.stderr.strip()[:120]!r}")
+
 # --- a measure whose file is absent from the cache --------------------------
 r = run("--measure", "terminal", cache=CACHE)
 check("a missing measure file is reported, not a traceback",
@@ -201,6 +241,6 @@ shutil.rmtree(CACHE, ignore_errors=True)
 print()
 bad = [n for n, ok in results if not ok]
 if bad:
-    print(f"FAIL: {len(bad)}/{len(results)} — {'; '.join(bad)}")
+    print(f"FAIL: {len(bad)}/{len(results)} - {'; '.join(bad)}")
     sys.exit(1)
 print(f"PASS: {len(results)} benchmarks.sh checks")

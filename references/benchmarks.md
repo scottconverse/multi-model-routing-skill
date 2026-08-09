@@ -48,6 +48,27 @@ CSVs**, updated that same day. A Python client also exists
 (`pip install epochai`) if relationships between entities matter more than flat
 files.
 
+### The flags
+
+Every flag `scripts/benchmarks.sh` accepts. `--help` prints the same list; a
+test asserts these two stay in step, because `--limit` shipped documented in
+neither for a release.
+
+| Flag | Effect |
+|---|---|
+| `--measure NAME` | which benchmark to rank on (table below); default `capabilities` |
+| `--model NAME` | only models whose name contains NAME, case-insensitive |
+| `--open` | open-weights models only — **`capabilities` only**, see below |
+| `--limit N` | how many rows to print, positive integer; default 25 |
+| `--refresh` | force a refetch now, ignoring cache age |
+| `--list` | which measures exist and which are cached, then exit |
+
+Two environment variables: `BENCHMARKS_CACHE` (default
+`~/.cache/multi-model-routing/benchmarks`) and `BENCHMARKS_MAX_AGE_DAYS`
+(default 7 — how stale the cache may get before a run refetches). `--refresh`
+is the manual override for the second; you rarely need it, since a run older
+than the max age refetches on its own.
+
 ### The `--measure` values
 
 `scripts/benchmarks.sh --list` prints these; they are named here so you can

@@ -40,12 +40,24 @@ MODEL_FILTER=""
 REFRESH=0
 LIST=0
 
+# ${2:?...} answered a missing value with bash's own diagnostic --
+# "benchmarks.sh: line 45: 2: --measure needs a value" -- which names a
+# positional parameter the user never typed, and carries a line number that
+# drifts with every edit above it. That is the same fossil class as the
+# hardcoded sed range --help used to have. Say it in the script's own voice.
+# "${2-}" rather than "$2" so `set -u` cannot fire before the check runs; the
+# -n test then covers unset and explicitly-empty in one place.
+need_value() {          # need_value <flag> <value-or-empty>
+    [ -n "$2" ] || { echo "benchmarks.sh: $1 needs a value" >&2; exit 1; }
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
-        --measure) MEASURE="${2:?--measure needs a value}"; shift 2 ;;
-        --model)   MODEL_FILTER="${2:?--model needs a value}"; shift 2 ;;
+        --measure) need_value --measure "${2-}"; MEASURE="$2"; shift 2 ;;
+        --model)   need_value --model   "${2-}"; MODEL_FILTER="$2"; shift 2 ;;
         --limit)
-            LIMIT="${2:?--limit needs a value}"
+            need_value --limit "${2-}"
+            LIMIT="$2"
             # Validate here, not in the python below. Leaving it to int() gave a
             # raw ValueError traceback -- the exact failure call_local.sh was
             # corrected for in v0.3.2. A shipped script should never answer a

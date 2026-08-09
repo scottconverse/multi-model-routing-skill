@@ -451,8 +451,13 @@ store rankings — **it fetches them**:
 scripts/benchmarks.sh --open              # best open-weights models
 scripts/benchmarks.sh --measure coding    # code work specifically
 scripts/benchmarks.sh --model deepseek    # one family
+scripts/benchmarks.sh --limit 10          # how many rows (default 25)
+scripts/benchmarks.sh --refresh           # refetch now, ignoring cache age
 scripts/benchmarks.sh --list              # which measures are available
 ```
+
+`scripts/benchmarks.sh --help` prints the same list. The full flag table,
+including the two environment variables, is in `references/benchmarks.md`.
 
 **Source: [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks)** — a
 non-profit research institute publishing under **CC-BY 4.0**. No account, no
