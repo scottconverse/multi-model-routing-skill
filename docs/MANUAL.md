@@ -191,6 +191,19 @@ batches, weigh it against a local model.
 Mechanical bulk work that must stay on Claude goes to Haiku. Fan-out is
 capped and tracked — never fire-and-forget.
 
+**Delegate WHAT, never HOW.** A subagent gets the outcome and picks its own
+route. Handing it the URL to fetch, the search to run, or a numbered procedure
+spends tokens writing instructions it could derive, and caps the result at the
+delegator's guess instead of the agent's investigation. If you're writing
+step 3, you're doing the work twice.
+
+**You can route the routing.** Deciding *where* work goes is classification,
+and classification is what small local models measurably do well — a 7B scored
+12/12 on the benchmark above. On a long sweep, letting a local model pre-sort
+items into "needs judgment" and "mechanical" costs nothing and keeps premium
+tokens for the work rather than the dispatch. Review the split before acting on
+it, same as any local output.
+
 **Calling local models works. Running *on* one doesn't.** Your agent calling a
 local model via `call_local.sh` is this skill's core path — proven, fast, with
 receipts. What fails is replacing Claude Code's *own inference backend* with a
@@ -301,6 +314,29 @@ forever. Raise `CALL_LOCAL_TIMEOUT` for genuinely long generations.
 **Keep local calls to 1–2 at a time.** Local servers serialize or thrash under
 parallel load, especially when requests force a model swap. Parallelism here
 makes things slower, not faster.
+
+### "Local" means the endpoint, not the machine
+
+`call_local.sh` takes a base URL and has no localhost assumption, so **any**
+Ollama-compatible endpoint works — including one on another computer:
+
+```bash
+call_local.sh http://192.168.1.50:11434 gemma-4-26b "..." 2048
+```
+
+That's the escape hatch when a model won't fit in your RAM: a box with more
+memory can serve it over the LAN, no code change.
+
+Two things to know before relying on it:
+
+- **The serving machine needs configuring.** Ollama binds `127.0.0.1` by
+  default and will refuse LAN connections until it's started with
+  `OLLAMA_HOST=0.0.0.0` (and the firewall allows it). One config change on that
+  box, not zero.
+- ⚠️ **A remote endpoint is not private.** The privacy property comes from
+  `localhost`, not from the word "local." Once the URL points elsewhere, your
+  prompt leaves this machine and the same consent rule applies as for any cloud
+  backend. The script enforces nothing — it posts wherever you point it.
 
 ---
 
@@ -497,8 +533,30 @@ skill triggers, so length there is a tax on every session. Depth lives here.
 ## 14. Removal
 
 ```bash
+python3 install.py --uninstall            # everywhere it's installed
+python3 install.py --uninstall --list     # preview first, changes nothing
+python3 install.py --uninstall --app antigravity
+python3 install.py --uninstall --project DIR
+```
+
+**Your `local-notes.md` is preserved**, copied to
+`multi-model-routing.local-notes.backup.md` beside where the skill was, and the
+path is printed. Those are your measured machine facts — the uninstaller won't
+throw them away.
+
+It also refuses to delete a directory that has no `SKILL.md` in it, so a
+mistyped `--project` can't take out something unrelated.
+
+By hand works just as well:
+
+```bash
 rm -rf ~/.claude/skills/multi-model-routing
 ```
 
 Nothing else is installed anywhere — no config edits, no background services,
 no registry entries. Removing the folder fully uninstalls it.
+
+**MCP servers are separate.** If you registered Codex with an agent
+(`claude mcp add codex …`, or an entry in `mcp_config.json`), that registration
+lives in the agent's own config and survives uninstalling this skill. Remove it
+with that agent's tooling if you want it gone.

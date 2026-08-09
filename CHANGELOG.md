@@ -4,7 +4,7 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.3.1] — 2026-08-09
 
 Three ideas adopted after reading [Warden](https://github.com/domdoss/Warden),
 a local-first personal assistant with a hybrid routing architecture. Ideas
@@ -30,6 +30,23 @@ MIT, so no code was taken.
   pre-sort items by "needs judgment / mechanical" for free, keeping premium
   tokens for the work rather than the dispatch. Warden's core bet is a 12B
   orchestrating frontier models; our own measurement supports it.
+- **`install.py --uninstall`.** Removal was previously a bare `rm -rf` in one
+  section of the manual, with no tooling and no mention in the README or on the
+  landing page. The uninstaller **preserves your `local-notes.md`** to
+  `multi-model-routing.local-notes.backup.md` beside the install and prints the
+  path — those are measured machine facts, not disposable — and it refuses to
+  delete any directory without a `SKILL.md` in it, so a mistyped `--project`
+  can't take out something unrelated. Works with `--list`, `--app` and
+  `--project`. Removal is now documented in all three human-facing docs,
+  including the point that MCP registrations live in the agent's own config and
+  survive uninstalling this skill.
+
+### Verified for this release
+Full lifecycle exercised end to end in a clean directory: install → suite 7/7
+from the installed copy → live calls against both Ollama (`in=40 out=8`) and
+LM Studio (`in=37 out=5`) → `--uninstall --list` dry run left everything in
+place → real uninstall removed the tree and preserved a hand-edited
+`local-notes.md` with the edit intact.
 
 ## [0.3.0] — 2026-08-09
 

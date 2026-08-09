@@ -90,7 +90,7 @@
 <body>
 
 <header class="wrap">
-  <div class="badge">v0.3.0 · MIT · 5 backends · 3 meters · every path live-tested</div>
+  <div class="badge">v0.3.1 · MIT · 5 backends · 3 meters · every path live-tested</div>
   <h1>You're paying for AI by the token.<br><span class="free">Your PC already has some for free.</span></h1>
   <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the local models already installed on your machine — then Codex, Antigravity, and Claude — across three separate meters, in cost and privacy order.</p>
   <div class="cta">
@@ -229,6 +229,13 @@ cp references/local-notes.example.md references/local-notes.md</code></pre>
   <p class="muted">The folder name must be <code>multi-model-routing</code> — that's what <code>SKILL.md</code>'s <code>name:</code> field expects, regardless of what the repo is called. The agent picks it up automatically from there; there's nothing to enable. Install it in <em>every</em> harness you use — routing advice only helps the session that can read it.</p>
   <h3>Then just ask for bulk work</h3>
   <p class="muted">"Summarize every log in this folder." "Tag these 300 rows." "Draft docstrings for all of these." The skill triggers on the shape of the request — a folder, a count, "all of them" — and routes it before reading a single file.</p>
+  <h3>Uninstall</h3>
+  <pre><code>python3 install.py --uninstall     # --list to preview first</code></pre>
+  <p class="muted">Your <code>local-notes.md</code> is preserved beside where the skill was and the path printed — those are measured machine facts, not disposable. By hand, deleting the folder does the same job; nothing else is installed anywhere. It also refuses to delete a directory with no <code>SKILL.md</code> in it, so a mistyped path can't take out something unrelated.</p>
+
+  <h3>"Local" doesn't have to mean this machine</h3>
+  <p class="muted">The bundled script takes a base URL and has no localhost assumption, so any Ollama-compatible endpoint works — including a bigger box on the LAN serving a model that won't fit in your RAM. That host needs <code>OLLAMA_HOST=0.0.0.0</code>, since Ollama binds <code>127.0.0.1</code> by default. <strong>A remote endpoint is not private</strong> — the guarantee comes from <code>localhost</code>, not from the word "local."</p>
+
   <h3>You need less than you'd think</h3>
   <p class="muted">Nothing here requires all four backends. It works with whatever subset you actually have, and a missing one is a one-line note, never a blocker. The bundled script needs only <code>bash</code>, <code>curl</code> and <code>python3</code> — standard library, no <code>pip install</code>.</p>
 </section>
@@ -250,6 +257,8 @@ cp references/local-notes.example.md references/local-notes.md</code></pre>
     <div class="tier"><b>lazy probing</b><span>Backends are probed when they're about to be used, not in a sweep on load — and the result is cached for the session.</span></div>
     <div class="tier"><b>escalate, don't loop</b><span>If a tier fails review twice on the same work, it moves up one. It never burns a third attempt at the same level.</span></div>
     <div class="tier"><b>bounded calls</b><span>Local calls are capped at 1–2 at a time, time out rather than hanging forever, and treat an empty reply as a failure — not as a successful empty answer.</span></div>
+    <div class="tier"><b>what, not how</b><span>Sub-agents get the outcome and pick their own route. Prescribing the URL, the query, or a numbered procedure spends tokens writing instructions the agent could derive — and caps the result at your guess.</span></div>
+    <div class="tier"><b>route the routing</b><span>Deciding <em>where</em> work goes is classification, and that's the thing small local models measurably nail. On a long sweep a local model can pre-sort the queue for free, so premium tokens go to the work instead of the dispatch.</span></div>
   </div>
 </section>
 

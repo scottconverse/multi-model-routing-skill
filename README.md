@@ -84,6 +84,29 @@ To use it on a second machine, repeat the clone and the copy there. There's no
 sync mechanism beyond git — `git pull` inside the installed folder picks up
 updates, and your `local-notes.md` is untouched by it.
 
+## Uninstall
+
+```bash
+python3 install.py --uninstall          # add --list to preview
+```
+
+Your `local-notes.md` is preserved beside where the skill was, and the path is
+printed — those are your measured machine facts, not disposable. By hand,
+`rm -rf ~/.claude/skills/multi-model-routing` does the same job; nothing else
+is installed anywhere. Any MCP servers you registered live in the agent's own
+config and are unaffected.
+
+## "Local" doesn't have to mean this machine
+
+`scripts/call_local.sh` takes a base URL and has no localhost assumption, so
+any Ollama-compatible endpoint works — including a beefier box on the LAN
+serving a model that won't fit in your RAM. The serving host needs
+`OLLAMA_HOST=0.0.0.0` (Ollama binds `127.0.0.1` by default).
+
+⚠️ A remote endpoint is **not private**. The privacy property comes from
+`localhost`, not from the word "local" — treat any non-localhost URL like a
+third-party cloud backend.
+
 ## What's in here
 
 ```

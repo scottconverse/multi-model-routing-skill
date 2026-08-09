@@ -13,6 +13,7 @@ Usage:
     python3 install.py --app antigravity
     python3 install.py --project .     # into ./.claude/skills for one project
     python3 install.py --list          # show what would happen, change nothing
+    python3 install.py --uninstall     # remove it, preserving your local-notes.md
 """
 import argparse
 import os
@@ -82,6 +83,36 @@ def install(dest_root, dry_run=False):
     return dest, actions
 
 
+def uninstall(dest_root, dry_run=False):
+    """Remove the installed skill, preserving the user's local-notes.md.
+
+    Refuses to delete a directory that doesn't look like this skill, so a
+    mistyped --project can't take out something unrelated.
+    """
+    dest = dest_root / SKILL_NAME
+    actions = []
+    if not dest.exists():
+        return dest, ["  not installed here — nothing to do"]
+
+    if not (dest / "SKILL.md").is_file():
+        return dest, ["  REFUSED: no SKILL.md here, so this isn't the skill. "
+                      "Nothing deleted."]
+
+    notes = dest / "references" / "local-notes.md"
+    if notes.is_file():
+        keep = dest_root / f"{SKILL_NAME}.local-notes.backup.md"
+        actions.append(f"  {'would preserve' if dry_run else 'preserved'} your notes -> {keep}")
+        if not dry_run:
+            shutil.copy2(notes, keep)
+    else:
+        actions.append("  no local-notes.md to preserve")
+
+    actions.append(f"  {'would remove' if dry_run else 'removed'}: {dest}")
+    if not dry_run:
+        shutil.rmtree(dest)
+    return dest, actions
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -91,6 +122,8 @@ def main():
                     help="install into DIR/.claude/skills instead of a home directory")
     ap.add_argument("--list", action="store_true",
                     help="show what would happen without changing anything")
+    ap.add_argument("--uninstall", action="store_true",
+                    help="remove the skill; your local-notes.md is preserved alongside")
     args = ap.parse_args()
 
     if args.project:
@@ -103,13 +136,21 @@ def main():
         roots = {n: TARGETS[n] for n in chosen}
 
     for name, root in roots.items():
-        dest, actions = install(root, dry_run=args.list)
+        if args.uninstall:
+            dest, actions = uninstall(root, dry_run=args.list)
+        else:
+            dest, actions = install(root, dry_run=args.list)
         print(f"\n{name}: {dest}")
         for a in actions:
             print(a)
 
     if args.list:
         print("\n(--list: nothing was changed)")
+    elif args.uninstall:
+        print("\nUninstalled. Nothing else was installed anywhere — no config "
+              "edits, no services, no registry entries.")
+        print("Any MCP servers you registered are separate and stay put; remove "
+              "them with your agent's own tooling if you want them gone.")
     else:
         print("\nDone. The folder name must stay 'multi-model-routing' — that's "
               "what SKILL.md's name: field expects.")
