@@ -4,6 +4,30 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`scripts/benchmarks.sh` — the freshness mechanism.** A number pasted into a
+  document is a fossil the moment a model ships, so the skill no longer carries
+  rankings; it fetches them. The script pulls Epoch AI's open data
+  (CC-BY, no account, no key), **refetches whenever the cache is older than a
+  week** (`BENCHMARKS_MAX_AGE_DAYS`), falls back to the cache when offline and
+  says so, and prints the attribution CC-BY requires on every run.
+
+  ```bash
+  scripts/benchmarks.sh --open              # best open-weights models
+  scripts/benchmarks.sh --measure coding    # code work specifically
+  scripts/benchmarks.sh --model deepseek    # one family
+  ```
+
+- **Open source first, as a routing rule.** Where an open-weights model can do
+  the job, prefer it — over a paid API model, and when choosing what to pull.
+  Not only about cost: open weights run locally, keep data on the machine, cost
+  nothing per call, and can't be deprecated out from under you. **And it is no
+  longer a capability sacrifice** — on the open data, `kimi-k3` (157.01, open
+  weights) outscores `claude-sonnet-5` (155.53) and `gemini-3.6-flash` (153.98),
+  two paid tiers this skill routes to.
+
 ## [0.3.4] — 2026-08-09
 
 ### Added

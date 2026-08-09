@@ -33,6 +33,7 @@ PAYLOAD = [
     "install.py",                      # so an install can remove itself
     "docs/MANUAL.md",                  # the human doc belongs WITH the install
     "scripts/call_local.sh",
+    "scripts/benchmarks.sh",
     "tests/test_call_local.py",        # lets a user verify their own install
     "tests/test_install.py",
     "references/benchmarks.md",

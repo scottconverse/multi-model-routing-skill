@@ -69,16 +69,35 @@ Two axes, cost and privacy:
   third-party cloud backend without an explicit OK from the user — for that
   material it's local models or Claude.
 
+- **Open source first.** Where an open-weights model can do the job, prefer it
+  — over a paid API model, and when choosing what to pull. This is the owner's
+  standing preference and it is not only about cost: open weights run locally,
+  keep data on the machine, cost nothing per call, and cannot be deprecated out
+  from under you. It is also no longer a sacrifice. On the open benchmark data
+  (`scripts/benchmarks.sh --open`), the leading open-weights models score
+  *above* several paid tiers this skill routes to. Check before assuming the
+  paid one is better.
+
 Local model output is raw material: it never ships unreviewed. You (or a
 Claude subagent) review before it counts.
 
-**Tier assignments are claims about capability — ground them.** When you assign
-a model to a tier, or doubt one, check Artificial Analysis rather than
-recalling a ranking: it puts local open-weights models and cloud models on one
-scale, which is exactly the comparison this skill needs. See
-`references/benchmarks.md`. A measured result on this machine still outranks a
-leaderboard — use the index to pick what to try, and a receipt to decide what
-to keep. **Never invent a score:** if the source is unavailable, say so.
+**Tier assignments are claims about capability — ground them.** Run
+`scripts/benchmarks.sh` rather than recalling a ranking. It pulls Epoch AI's
+open benchmark data (CC-BY, no account, no API key), refetches itself when the
+cache is over a week old, and marks open-weights versus API-only, so local and
+cloud sit on one scale:
+
+```bash
+scripts/benchmarks.sh --open              # best open-weights models
+scripts/benchmarks.sh --measure coding    # code work specifically
+scripts/benchmarks.sh --model deepseek    # one family
+```
+
+A measured result on this machine still outranks a leaderboard — use the data
+to pick what to *try*, and a receipt to decide what to *keep*. **Never invent a
+score:** the data is one curl away, so a number without a call behind it has no
+excuse. Details, other measures, and the attribution CC-BY requires are in
+`references/benchmarks.md`.
 
 ## Discover lazily, prove before claiming
 
