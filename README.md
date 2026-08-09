@@ -32,10 +32,19 @@ Skills are auto-discovered from two locations:
   instead. Most people want the personal install above — it's what makes the
   skill "general," applying across every project you touch on that machine.
 
-To use it on a second machine, repeat the same clone there. There's no sync
-mechanism beyond git — `git pull` inside the installed folder to pick up
-updates, and note that `references/local-notes.md` (see below) is expected
-to end up different per machine, since it holds machine-specific facts.
+Then create your machine's notes file, which the skill reads on startup:
+
+```bash
+cp references/local-notes.example.md references/local-notes.md
+```
+
+That copy is git-ignored on purpose. It records your hardware, install paths
+and quota state — facts about one machine that have no business in version
+control — so `git status` stays clean and no stray commit can publish them.
+
+To use it on a second machine, repeat the clone and the copy there. There's no
+sync mechanism beyond git — `git pull` inside the installed folder picks up
+updates, and your `local-notes.md` is untouched by it.
 
 ## What's in here
 
@@ -44,9 +53,12 @@ SKILL.md                    the skill itself — read this first
 scripts/call_local.sh       calls a local Ollama/LM Studio server, with
                              Anthropic/OpenAI dialect fallback and a
                              stderr "receipt" line for evidence
-references/local-notes.md   machine/account-specific facts (quota, CLI
-                             paths) kept OUT of SKILL.md so the skill stays
-                             portable; edit this per machine
+references/local-notes.example.md
+                            template for machine/account-specific facts
+                             (quota, CLI paths), kept OUT of SKILL.md so the
+                             skill stays portable. Copy it to
+                             references/local-notes.md and edit that copy —
+                             which is git-ignored and never committed
 tests/test_call_local.py    offline smoke test for call_local.sh (spins up
                              mock HTTP servers, no real Ollama/LM Studio
                              needed) — run with `python3 tests/test_call_local.py`

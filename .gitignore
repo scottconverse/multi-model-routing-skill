@@ -1,0 +1,4 @@
+# Machine- and account-specific facts: hardware, install paths, quota state.
+# Describes one machine, so it never belongs in version control. Start from
+# references/local-notes.example.md instead.
+references/local-notes.md

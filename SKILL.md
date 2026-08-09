@@ -35,6 +35,12 @@ that deliberately do NOT belong in this generic file. Every entry carries an
 as-of date — treat anything more than a month old as a hypothesis to verify,
 not a fact.
 
+That file is git-ignored — it describes one machine, so it stays out of
+version control. On a fresh clone it won't exist yet: copy
+`references/local-notes.example.md` to `references/local-notes.md` and fill it
+in as you learn things. If it's missing, say so and carry on; it is not a
+blocker.
+
 ## Routing rule
 
 Two axes, cost and privacy:
