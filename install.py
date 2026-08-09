@@ -30,13 +30,24 @@ PAYLOAD = [
     "SKILL.md",
     "README.md",
     "LICENSE",
-    "install.py",
+    "install.py",                      # so an install can remove itself
+    "docs/MANUAL.md",                  # the human doc belongs WITH the install
     "scripts/call_local.sh",
-    "tests/test_call_local.py",
+    "tests/test_call_local.py",        # lets a user verify their own install
+    "tests/test_install.py",
     "references/codex.md",
     "references/cross-agent.md",
     "references/local-backends.md",
     "references/local-notes.example.md",
+]
+
+# Tracked files deliberately NOT shipped, listed so the drift test can tell
+# "decided against" apart from "forgotten". These document the repo for people
+# working ON it; they are noise inside an install.
+NOT_SHIPPED = [
+    "CHANGELOG.md",                    # repo history, not skill behaviour
+    "CONTRIBUTING.md",                 # for contributors, not users
+    "docs/DISCUSSIONS_SEED.md",        # GitHub Discussions material
 ]
 
 # Directories that mark a working copy under version control. Uninstalling one
@@ -74,6 +85,25 @@ def install(dest_root, dry_run=False):
             shutil.copy2(src, tgt)
             if rel.endswith(".sh"):
                 os.chmod(tgt, 0o755)
+
+    # Prune anything left from an older version. Without this, a file renamed
+    # between releases keeps its old copy in the install forever and the agent
+    # may still read the stale one. Never touches local-notes.md (yours) or a
+    # VCS directory.
+    if dest.exists():
+        keep = {(dest / rel).resolve() for rel in PAYLOAD}
+        keep.add((dest / "references" / "local-notes.md").resolve())
+        for path in sorted(dest.rglob("*")):
+            if not path.is_file():
+                continue
+            if any(part in VCS_MARKERS for part in path.parts):
+                continue
+            if path.resolve() in keep:
+                continue
+            actions.append(f"  {'would prune' if dry_run else 'pruned'} stale: "
+                           f"{path.relative_to(dest).as_posix()}")
+            if not dry_run:
+                path.unlink()
 
     notes = dest / "references" / "local-notes.md"
     tmpl = dest / "references" / "local-notes.example.md"

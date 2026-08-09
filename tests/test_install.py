@@ -113,6 +113,47 @@ with tempfile.TemporaryDirectory() as td:
         check("an installed copy can uninstall itself", not d.exists(),
               (r.stdout + r.stderr)[-200:])
 
+# ── payload drift guard ──────────────────────────────────────────────────────
+# PAYLOAD is hand-maintained, so a new reference doc could silently fail to
+# ship. That is the same drift that left the 0.3.0 and 0.3.1 docs behind the
+# work, one layer down. Every tracked file must be shipped or explicitly
+# excluded — "forgotten" is no longer a state this repo can be in.
+sys.path.insert(0, str(ROOT))
+import install as installer  # noqa: E402
+
+SHIPPED = set(installer.PAYLOAD)
+EXCLUDED = set(getattr(installer, "NOT_SHIPPED", []))
+
+tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
+                         text=True, timeout=60).stdout.split()
+candidates = [f for f in tracked
+              if f.endswith((".md", ".sh", ".py"))
+              and not f.startswith((".github/", "docs/notes"))]
+unaccounted = sorted(set(candidates) - SHIPPED - EXCLUDED)
+check("every tracked file is shipped or explicitly excluded", not unaccounted,
+      f"add to PAYLOAD or NOT_SHIPPED: {unaccounted}")
+
+overlap = SHIPPED & EXCLUDED
+check("no file is both shipped and excluded", not overlap, f"{sorted(overlap)}")
+
+missing = sorted(rel for rel in installer.PAYLOAD if not (ROOT / rel).is_file())
+check("every PAYLOAD entry exists in the repo", not missing, f"{missing}")
+
+# ── install() must prune files left by an older version ──────────────────────
+with tempfile.TemporaryDirectory() as td:
+    t = pathlib.Path(td)
+    run("--project", str(t))
+    d = t / ".claude" / "skills" / SKILL
+    stale = d / "references" / "renamed-away.md"
+    stale.write_text("left over from an older version\n", encoding="utf-8")
+    notes = d / "references" / "local-notes.md"
+    notes.write_text("MY MACHINE FACTS\n", encoding="utf-8")
+    run("--project", str(t))                      # reinstall over the top
+    check("reinstalling prunes a stale file", not stale.exists())
+    check("pruning never removes local-notes.md", notes.is_file())
+    check("pruning preserves local-notes.md content",
+          notes.is_file() and "MY MACHINE FACTS" in notes.read_text(encoding="utf-8"))
+
 print()
 bad = [n for n, ok, _ in results if not ok]
 if bad:
