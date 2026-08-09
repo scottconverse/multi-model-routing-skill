@@ -4,6 +4,40 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`references/benchmarks.md` — tier assignments are now grounded in a source
+  rather than in prose.** Artificial Analysis is the reference of record, and
+  the method is a *query*, not a recollection: the OpenRouter MCP exposes the
+  Intelligence, Coding Agent and Agentic indices directly
+  (`list-benchmarks source=artificial-analysis`, or `list-models` with
+  `sort=coding-high-to-low` / `min_coding_index=`). The web page is
+  JavaScript-rendered, so a plain fetch returns methodology text and no
+  numbers — worth knowing before anyone tries.
+
+  The reason it matters here more than in most skills: **AA scores open-weights
+  models on the same indices as proprietary ones**, which puts the models on
+  this machine and the models behind an API on one scale. "Is the local model
+  good enough, or does this need a tier up?" becomes a comparison instead of a
+  judgment call.
+
+  Rules attached: cite the index *and the date*; re-check anything older than a
+  month; a measured result on this machine still outranks a leaderboard; and
+  **never invent a score** — if the source is unavailable, say so. Recorded
+  as of 2026-08-09 the OpenRouter connector on this machine reports
+  `! Needs authentication`, which makes those queries silently unavailable
+  until it is reconnected.
+
+### Fixed
+- **The drift guard could not see a file until it was staged.** It used
+  `git ls-files`, which lists only tracked files, so a brand-new reference doc
+  stayed invisible locally until `git add` — CI caught it, but a step later
+  than the author needed. It now also reads
+  `git ls-files --others --exclude-standard`, which respects `.gitignore` so
+  `local-notes.md` and `__pycache__` stay exempt. Found by writing a new
+  reference file and watching the guard stay green when it should not have.
+
 ## [0.3.3] — 2026-08-09
 
 Fix-forward for four defects introduced or missed in 0.3.2. One of them could

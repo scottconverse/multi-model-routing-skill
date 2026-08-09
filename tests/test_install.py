@@ -193,7 +193,15 @@ EXCLUDED = set(getattr(installer, "NOT_SHIPPED", []))
 # docs/index.html, docs/.nojekyll and the workflow included.
 tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
                          text=True, timeout=60).stdout.split()
-unaccounted = sorted(set(tracked) - SHIPPED - EXCLUDED)
+# Untracked-but-not-ignored files count too. git ls-files sees only what is
+# already staged or committed, so a brand-new reference doc stayed invisible to
+# this guard until someone ran `git add` -- CI caught it, but only a step later
+# than the author needed. --others --exclude-standard closes that gap while
+# still respecting .gitignore, so local-notes.md and __pycache__ stay exempt.
+untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
+                           cwd=ROOT, capture_output=True, text=True,
+                           timeout=60).stdout.split()
+unaccounted = sorted((set(tracked) | set(untracked)) - SHIPPED - EXCLUDED)
 check("every tracked file is shipped or explicitly excluded", not unaccounted,
       f"add to PAYLOAD or NOT_SHIPPED: {unaccounted}")
 

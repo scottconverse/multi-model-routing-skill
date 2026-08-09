@@ -143,6 +143,9 @@ references/codex.md         Codex: model selection BY CAPABILITY (not by
 references/cross-agent.md   how Claude Code, Codex and Antigravity find each
                              other and each other's models; the MCP bridges,
                              all verified end to end
+references/benchmarks.md   grounding tier assignments in Artificial Analysis
+                             indices, and how to QUERY them rather than
+                             recall them
 references/local-backends.md  what Ollama and LM Studio verifiably do — tools,
                              vision, embeddings, prompt caching, RAM limits
 references/local-notes.example.md

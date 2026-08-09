@@ -35,6 +35,7 @@ PAYLOAD = [
     "scripts/call_local.sh",
     "tests/test_call_local.py",        # lets a user verify their own install
     "tests/test_install.py",
+    "references/benchmarks.md",
     "references/codex.md",
     "references/cross-agent.md",
     "references/local-backends.md",

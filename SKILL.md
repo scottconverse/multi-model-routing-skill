@@ -72,6 +72,14 @@ Two axes, cost and privacy:
 Local model output is raw material: it never ships unreviewed. You (or a
 Claude subagent) review before it counts.
 
+**Tier assignments are claims about capability — ground them.** When you assign
+a model to a tier, or doubt one, check Artificial Analysis rather than
+recalling a ranking: it puts local open-weights models and cloud models on one
+scale, which is exactly the comparison this skill needs. See
+`references/benchmarks.md`. A measured result on this machine still outranks a
+leaderboard — use the index to pick what to try, and a receipt to decide what
+to keep. **Never invent a score:** if the source is unavailable, say so.
+
 ## Discover lazily, prove before claiming
 
 Do NOT run a discovery sweep just because this skill loaded. Probe a backend
@@ -258,9 +266,14 @@ findings in `references/cross-agent.md`.
 
 1. **Inventory first:** prefer an installed model that fits — zero download.
 2. **If nothing installed fits** (vision, stronger coding, longer context):
-   pick the best current open model for the job. If you don't confidently
-   know what's current, research it on the web — the local-model landscape
-   moves monthly; don't trust stale training knowledge.
+   pick the best current open model for the job. **Check Artificial Analysis
+   rather than reasoning from memory** — it scores open-weights models on the
+   same indices as proprietary ones, so a local model and the cloud model you'd
+   otherwise use are directly comparable. Query it via the OpenRouter MCP
+   (`list-benchmarks source=artificial-analysis`, or `list-models` with
+   `sort=coding-high-to-low` / `min_coding_index=`); the web page is
+   JavaScript-rendered and a plain fetch returns no numbers. Method, caveats
+   and rules in `references/benchmarks.md`.
 3. **Respect the hardware:** check available RAM/VRAM before choosing a size.
    A model that barely fits will thrash; prefer a quantization with headroom.
 4. **Confirm before big downloads:** a multi-GB pull writes to the user's
