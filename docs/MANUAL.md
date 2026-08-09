@@ -189,6 +189,43 @@ zero API cost. **The local model must support thinking**: `qwen2.5:7b` fails
 with `"does not support thinking"`, `gemma4:e4b` works. Check the
 `capabilities` array in Ollama's `/api/tags` before routing here.
 
+### Agents driving each other (MCP)
+
+MCP is the common bus between these systems, and it runs both ways.
+
+**Expose Codex to another agent.** `codex mcp-server` turns Codex into an MCP
+server over stdio (protocol `2025-06-18`), offering two tools: `codex` to run a
+session and `codex-reply` to continue a thread. Register it in the client's MCP
+config — for Antigravity that's `~/.gemini/config/mcp_config.json`:
+
+```json
+{ "mcpServers": { "codex": {
+    "command": "<absolute path to codex.exe>", "args": ["mcp-server"], "env": {} } } }
+```
+
+**Point Codex at someone else's tools.**
+
+```bash
+codex mcp list
+codex mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest
+```
+
+Both directions were verified on real hardware: an Antigravity → Codex round
+trip in 17.9 s, and 20+ Chrome DevTools browser tools exposed to Codex in
+21.8 s.
+
+⚠️ **Use the absolute path to the real executable, never a PATH shim.** On
+Windows the `codex` entry on PATH is a `.cmd` wrapper, and stdio MCP clients
+routinely fail to spawn it. This is the single most likely reason a bridge
+silently doesn't work.
+
+⚠️ **A call through a bridge spends the *callee's* quota.** Routing
+Antigravity → Codex bills Codex, not Antigravity. That's useful when one meter
+is tight — just be deliberate, and say which meter you're spending.
+
+The payoff: a tool server registered once is reachable from whichever agent you
+route to, so picking a backend on cost or capability doesn't cost you tooling.
+
 ---
 
 ## 5. Calling a local model by hand
@@ -306,6 +343,24 @@ against the source it was shown:
 |---|---|---|---|---|
 | Local 7B coder | $0 | 10 | ~1 | 72 s |
 | Codex | 25,122 tokens | 6 | 5 | 34 s |
+
+### And the same local model on work it suits
+
+A real batch on the same day and machine: twelve log files, classify each as an
+authentication failure, another error, or clean, with a known correct answer
+for all twelve. Routed local-first through `call_local.sh`, one call at a time.
+
+| Job | Backend | Result | Cost | Time |
+|---|---|---|---|---|
+| Adversarial code review | local 7B | ~1 of 10 findings real | $0 | 72 s |
+| **Classify 12 logs** | local 7B | **12 / 12 correct** | **$0** | **27 s** |
+
+All three authentication failures found, nothing invented, twelve receipts.
+
+**That gap is the entire argument for the ladder.** A small local model is not
+"worse AI" you tolerate to save money — it has one sharp edge and one blunt
+one. On bulk mechanical work it is free and exact; on a judgment call it will
+confidently invent things. Route to the edge that's sharp, and check its work.
 
 The local model didn't merely miss things — it invented them. Two of its ten
 findings were contradicted by the code in its own prompt: it reported a

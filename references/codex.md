@@ -89,7 +89,7 @@ believe is wrong is free; probing broadly is not.
 | Flag | Why it matters |
 |---|---|
 | `-m, --model <MODEL>` | first-class model selection — prefer over `-c model=…` |
-| `--output-schema <FILE>` | **JSON Schema for the final response.** For batch routing this is the difference between parseable results and regex-ing prose. Use it whenever you need structured output. |
+| `--output-schema <FILE>` | **JSON Schema for the final response.** For batch routing this is the difference between parseable results and regex-ing prose. ⚠️ **Redirect stdin (`< /dev/null`)** or `exec` blocks on `Reading additional input from stdin…` and never returns. Verified working with the redirect. |
 | `-o, --output-last-message <FILE>` | write the final message to a file — clean capture, no stdout scraping |
 | `--json` | streaming JSON events |
 | `--oss --local-provider ollama\|lmstudio` | **run Codex's agent loop against a local model.** Codex's tooling and sandboxing, zero API cost. A whole routing tier in one flag. |
@@ -106,9 +106,9 @@ believe is wrong is free; probing broadly is not.
 # review — use the purpose-built command
 codex review -m gpt-5.6-sol -s read-only "Audit for correctness and security"
 
-# batch item with structured output
+# batch item with structured output -- note the stdin redirect, it is required
 codex exec -m gpt-5.6-luna -s read-only --skip-git-repo-check \
-  --output-schema schema.json -o out.json "Classify this record: ..."
+  --output-schema schema.json -o out.json "Classify this record: ..." < /dev/null
 
 # Codex's agent loop against a free local model
 codex exec --oss --local-provider ollama -s read-only "..."
@@ -123,10 +123,11 @@ codex exec --oss --local-provider ollama -s read-only "..."
 `presentations`, `pdf`, `sites`, `visualize`, `template-creator`, plus any
 personal marketplace plugins.
 
-**Unverified:** whether these apply to `codex exec` runs or only to the
-Desktop app. Do not promise a caller that `exec` can drive the browser or
-computer-use plugin until it's been demonstrated in-session. Check
-`codex plugin list` and test before claiming.
+**Verified 2026-08-08: they DO reach `codex exec` runs**, not just the Desktop
+app. A schema-constrained `codex exec` run reported 13 tools available
+including document, spreadsheet, presentation and PDF authoring. (Tool count
+is the model's own report of its toolset, but it matches `codex plugin list`.)
+So `exec` is not a bare text endpoint — it carries the plugin surface with it.
 
 ---
 

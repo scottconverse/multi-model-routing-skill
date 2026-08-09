@@ -237,10 +237,21 @@ codex mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest
 confirmed in 21.8 s. A tool server built for one agent ecosystem is reusable by
 another; MCP is the common denominator.
 
-**Both directions are proven on this machine:**
+### Claude Code → Codex
+
+```bash
+claude mcp add codex --scope user -- "<absolute path to codex.exe>" mcp-server
+```
+
+*Verified 2026-08-08:* `claude mcp list` reports `codex … ✔ Connected`. This is
+the most useful direction day to day — it lets a Claude session hand work to
+Codex as a native tool rather than shelling out and parsing stdout.
+
+**All three directions are proven on this machine:**
 
 | Direction | Mechanism | Evidence |
 |---|---|---|
+| Claude Code → Codex | `claude mcp add` | `✔ Connected` |
 | Antigravity → Codex | `~/.gemini/config/mcp_config.json` | live call returned in 17.9 s |
 | Codex → Chrome DevTools | `codex mcp add` | 20+ tools listed in 21.8 s |
 
@@ -254,12 +265,20 @@ Antigravity keeps skills in `~/.gemini/config/skills/` — the same shape as
 Claude's `~/.claude/skills/`. This machine already has `workflowwright` in
 both.
 
-**This skill can be installed into Antigravity the same way:**
+**This skill installs into Antigravity the same way** (done and verified on
+this machine 2026-08-08 — `SKILL.md` present, `local-notes.md` created from
+the template):
 
 ```bash
 git clone https://github.com/scottconverse/multi-model-routing-skill.git \
   ~/.gemini/config/skills/multi-model-routing
+cd ~/.gemini/config/skills/multi-model-routing
+cp references/local-notes.example.md references/local-notes.md
 ```
+
+Install it in every harness you use. Routing advice only helps in the session
+that can read it — a skill that lives in one agent can't tell the others what
+they're allowed to route where.
 
 Antigravity also has its own plugins (`~/.gemini/config/plugins/`) — this
 machine carries `chrome-devtools-plugin`, `data-agent-kit-plugin`, and

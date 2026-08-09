@@ -4,6 +4,49 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.3.0] — 2026-08-08
+
+Proof release. The routing advice was sound but the skill had never been
+watched doing its own job, and several commands it recommended had never been
+run. Both fixed, and running them found real defects in the advice itself.
+
+### Added
+- **End-to-end proof the skill works.** A real batch — 12 log files classified
+  as auth failure / other error / clean, with a known correct answer for each —
+  routed local-first through `call_local.sh`, one call at a time:
+  **12/12 correct, 27 s, $0, 12 receipts.**
+  Set against the earlier audit result (same model class, ~1 of 10 findings
+  real), this measures both halves of the routing rule instead of asserting
+  them: a small local model is exact on mechanical work and inventive on
+  judgment calls. That gap is the entire argument for the ladder, and it is now
+  on the landing page and in the manual.
+- **Claude Code → Codex over MCP**, so a Claude session can hand work to Codex
+  as a native tool: `claude mcp add codex --scope user -- <abs path> mcp-server`.
+  Verified `✔ Connected`. All three bridge directions now proven.
+- The skill installed into Antigravity's own skills directory. Routing advice
+  only helps the session that can read it.
+
+### Fixed
+- **`--output-schema` blocks forever without a stdin redirect.** The docs
+  recommended it without mentioning that `codex exec` stops at
+  `Reading additional input from stdin…` when run non-interactively. Every
+  example now carries `< /dev/null`. Verified working with it.
+- **Resolved the "Unverified" note left in `references/codex.md`.** Codex
+  Desktop plugins *do* reach `codex exec` runs — a schema-constrained run
+  reported 13 tools including document, spreadsheet, presentation and PDF
+  authoring. `exec` is not a bare text endpoint.
+
+### Changed
+- **New rule: ask small local models for constrained plain text, not JSON
+  schema.** Measured on one model and prompt — a one-word answer scored 12/12
+  on the classification batch, while Ollama's native `format` schema got 1 of 3
+  wrong, and adding a free-text string field made it degenerate into a
+  600-token repeat loop. Schema-forcing costs accuracy at that size. For
+  structured output, route to `agy --json-schema` or `codex --output-schema`.
+- The manual and landing page now document the MCP bridges. They previously
+  contained zero mentions of MCP — every bridge lived only in `references/`,
+  so no human-facing page described the feature at all.
+
 ## [0.2.0] — 2026-08-08
 
 Cross-agent release. The skill knew about four backends and one way to call

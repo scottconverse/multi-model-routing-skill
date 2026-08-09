@@ -133,6 +133,14 @@ keep that receipt; it backs any claim that the backend did work.
   few hundred; the script defaults to 1024.
 - **Concurrency: keep local calls to 1–2 at a time.** Local servers serialize
   or thrash under parallel load, especially when requests force model swaps.
+- **Ask a small local model for constrained plain text, NOT JSON schema.**
+  Measured on the same model and prompt: a one-word answer scored **12/12** on
+  a real classification batch, while Ollama's native `format` schema got **1 of
+  3 wrong**, and adding a free-text string field to the schema made it
+  degenerate into a 600-token repeat loop. Schema-forcing costs accuracy at
+  this size. Want structured output? Either parse the one-word replies
+  yourself, or route to a tier that handles schemas well — `agy
+  --json-schema` or `codex --output-schema`.
 
 ### Codex CLI
 

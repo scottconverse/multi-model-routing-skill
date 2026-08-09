@@ -90,7 +90,7 @@
 <body>
 
 <header class="wrap">
-  <div class="badge">v0.2.0 · MIT · 5 backends · 3 meters · every path live-tested</div>
+  <div class="badge">v0.3.0 · MIT · 5 backends · 3 meters · every path live-tested</div>
   <h1>You're paying for AI by the token.<br><span class="free">Your PC already has some for free.</span></h1>
   <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the local models already installed on your machine — then Codex, Antigravity, and Claude — across three separate meters, in cost and privacy order.</p>
   <div class="cta">
@@ -166,7 +166,19 @@
   </table>
   </div>
   <p style="margin-top:18px">The local model didn't just miss things — it <em>invented</em> them. Two of its ten findings were flatly contradicted by the code sitting in its own prompt: it reported a missing usage message in a script that prints one, and an unhandled error case that's handled two lines later.</p>
-  <p>That's the whole argument for the ladder. A small local model is genuinely useful for bulk mechanical passes and genuinely unreliable at judgment. Route accordingly — and check its work.</p>
+  <h3 style="margin-top:28px">Now the same model on work it's actually suited to</h3>
+  <p>A real batch: twelve log files, classify each as an authentication failure, another error, or clean — with a known correct answer for all twelve.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Job</th><th>Backend</th><th>Result</th><th>Cost</th><th>Time</th></tr></thead>
+    <tbody>
+      <tr><td>Adversarial code review</td><td>local 7B</td><td class="bad">~1 of 10 findings real</td><td class="num">$0</td><td class="num">72 s</td></tr>
+      <tr><td>Classify 12 logs</td><td>local 7B</td><td class="good"><strong>12 / 12 correct</strong></td><td class="num">$0</td><td class="num">27 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:18px"><strong>Same model. Same machine. Same day.</strong> Catastrophic at judgment, flawless at mechanical classification — every auth failure found, nothing invented, and twelve token receipts proving the calls happened.</p>
+  <p>That gap <em>is</em> the ladder. A small local model isn't "worse AI" you tolerate to save money; it's a different tool with one sharp edge and one blunt one. Point it at bulk work and it's free and exact. Point it at a judgment call and it will confidently invent things. Route accordingly — and always check its work.</p>
 </section>
 
 <section class="wrap">
@@ -184,6 +196,19 @@
   </table>
   </div>
   <p style="margin-top:18px"><strong>Two routes worth knowing.</strong> <code>codex exec --oss --local-provider ollama</code> runs Codex's full agent loop — tooling, sandboxing and all — on free local weights, at zero API cost. And <code>agy --json-schema</code> returns schema-validated JSON with a token receipt in about two seconds, which makes it the best structured-batch surface of the lot.</p>
+
+  <h3 style="margin-top:28px">They can drive each other, too</h3>
+  <p>MCP is the common bus. <code>codex mcp-server</code> turns Codex into an MCP server any client can call as a native tool; <code>codex mcp add</code> points Codex at someone else's tools. Both directions were wired and verified on real hardware:</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Direction</th><th>Mechanism</th><th>Verified</th></tr></thead>
+    <tbody>
+      <tr><td>Antigravity → Codex</td><td class="num">mcp_config.json</td><td class="good">live round trip, 17.9 s</td></tr>
+      <tr><td>Codex → Chrome DevTools</td><td class="num">codex mcp add</td><td class="good">20+ browser tools exposed, 21.8 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:18px">The consequence is the useful part: <strong>a tool server registered once is reachable from whichever agent you route to</strong> — so choosing a backend on cost or capability doesn't cost you your tooling. One gotcha that cost real time is written down: register the absolute path to the actual executable, never a PATH shim, because <code>.cmd</code> wrappers fail to spawn under stdio MCP.</p>
   <p class="muted">Both verified by live calls, not read off a help page. One boundary worth stating precisely: your agent <em>calling</em> local models is the core path here and it works — that's what the bundled script does. What doesn't work is replacing an agent's own inference backend with a local server: protocol-compatible, but ~42&nbsp;s of prompt processing per call on a small model, several calls per turn. Calling local models, yes. Being one, no. Documented as a dead end so nobody re-derives it.</p>
 </section>
 
