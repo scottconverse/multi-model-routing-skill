@@ -4,6 +4,46 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.3.3] — 2026-08-09
+
+Fix-forward for four defects introduced or missed in 0.3.2. One of them could
+have destroyed a repository.
+
+### Fixed
+- **`install()` would have deleted 11 tracked files from a git checkout.** The
+  VCS skip added in 0.3.2 only covered paths *inside* `.git/`, but the files at
+  risk sit beside it: `.gitignore`, `.gitattributes`,
+  `.github/workflows/test.yml`, `docs/index.html`, `docs/.nojekyll`,
+  `CHANGELOG.md`, `CONTRIBUTING.md`, `DISCUSSIONS_SEED.md`. That is the CRLF
+  guard, the private-notes guard, all of CI, and the landing page — and the
+  documented personal install *is* a checkout. `install()` now reuses the same
+  `VCS_MARKERS` check `uninstall()` has and skips pruning entirely in a working
+  copy, saying so. Pruning exists to clean stale files out of a **copied**
+  install; in a checkout, git already does that job.
+- **The em dash was not cosmetic.** cp1252 hides the problem because that
+  codepage *has* the character at 0x97. cp437 — the historic `cmd.exe` default
+  — does not, and `install.py` died with
+  `UnicodeEncodeError: 'charmap' codec can't encode character '—'`,
+  exit 1, **after files had been copied**, leaving a partial install. All
+  printed strings in `install.py` are now ASCII, as is `call_local.sh`'s
+  empty-reply diagnostic, which carried the same hazard — a traceback there
+  would have replaced the message telling you to raise `max_tokens`.
+- **The drift guard now covers the same set pruning operates on.** The
+  extension filter is gone; every tracked file must be named in `PAYLOAD` or
+  `NOT_SHIPPED`, which forces `.gitignore`, `.gitattributes`, `docs/index.html`,
+  `docs/.nojekyll` and the CI workflow to be listed deliberately. A guard whose
+  set differs from the operation it guards is not a guard.
+- **A stray `.pyc` was committed in 0.3.2**, created when the drift test
+  imports `install.py`. Untracked, and `__pycache__/` plus `*.pyc` are now
+  ignored.
+
+### Verified
+Against the real checkout on this machine: `install.py --app claude` reports
+`skipped pruning: .git/ is present`, with 20 tracked files before and after and
+all four guard files intact. Under `chcp 437` with
+`PYTHONIOENCODING=cp437:strict`: exit 0 on install, uninstall, and the
+empty-reply path.
+
 ## [0.3.2] — 2026-08-09
 
 Four defect fixes and one drift guard, from a code read by the agent working on

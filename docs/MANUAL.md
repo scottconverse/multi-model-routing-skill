@@ -49,6 +49,12 @@ python3 install.py
 that can read it — a skill living in one agent can't tell the others what to
 route where.
 
+**If you installed by cloning, prefer `git pull` to re-running the installer.**
+Both work — the installer detects a working copy and skips its cleanup step,
+because git already manages stale files there — but `git pull` is the natural
+update path for a checkout and won't leave your working tree showing modified
+files.
+
 ### By hand
 
 Skills are auto-discovered from two locations. Personal install (every project
