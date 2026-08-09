@@ -252,8 +252,9 @@ context on your hardware.
 
 ## 9. What we measured
 
-On 2026-08-08 the same adversarial code audit ran through three backends, and
-every finding was then checked by hand against the source:
+On 2026-08-08 the same adversarial code audit was routed to the two cheaper
+tiers, and every finding either backend produced was then checked by hand
+against the source it was shown:
 
 | Backend | Cost | Findings | Actually real | Time |
 |---|---|---|---|---|
