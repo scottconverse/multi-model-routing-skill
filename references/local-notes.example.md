@@ -38,11 +38,20 @@ a CLI path, a hardware limit), offer to record it there with today's date.
   (`lms.exe` on Windows) and is often NOT on PATH, so record the real path.
   Note which models are downloaded and which actually fit in RAM)*
 
-## Codex / OpenAI quota
+## Codex / OpenAI
 
-- *(no entries yet — quota is per-account and the CLI won't report it without
-  spending a call, so record what you learn here with a date, and pass the
-  model explicitly every time: `-c model="<model>"`)*
+- *(no entries yet — run `codex doctor` for the active model and auth mode.
+  Choose models by capability, not by asking the user; see
+  `references/codex.md`. Record here only what you actually verify, with a
+  date — especially any model that turns out NOT to be reachable.)*
+
+## Antigravity (`agy`)
+
+- *(no entries yet — the CLI is often NOT on PATH; on Windows look in
+  `%LOCALAPPDATA%\agy\bin\agy.exe`. Record the real path here. Run
+  `agy models` for the roster — it's free and first-class. Note that it
+  injects a large system prompt, so record the per-call input-token cost you
+  observe.)*
 
 ## Hardware
 

@@ -4,6 +4,61 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.0] — 2026-08-08
+
+Cross-agent release. The skill knew about four backends and one way to call
+each. It now covers five backends on three separate meters, picks models by
+capability instead of asking the user, and documents the routes between agent
+systems. **Every path below was verified by a live call before shipping.**
+
+### Added
+- **Antigravity (`agy`) as a first-class backend.** Reaches Gemini 3.6/3.5
+  Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6 and GPT-OSS 120B —
+  the only local route to Gemini and GPT-OSS, and a second path to Claude
+  models on a meter separate from Claude quota. Verified: headless reply in
+  4.5 s; schema-validated `structured_output` with a token receipt in 2.1 s.
+  Caveat recorded: it injects ~27k input tokens per call.
+- **`references/codex.md`** — model selection by capability, the full CLI
+  surface (`review`, `mcp-server`, `mcp`, `doctor`, `plugin`, `apply`, `fork`,
+  `sandbox`), and the flags that matter (`--output-schema`, `-o`, `--json`,
+  `--oss`, `-i`, `-s`, `-p`).
+- **`references/cross-agent.md`** — how the agent systems find each other and
+  each other's models, including MCP as the interop bus (`codex mcp-server`
+  exposes Codex to any MCP client) and the fact that skills are portable
+  between `~/.claude/skills/` and `~/.gemini/config/skills/`.
+- **`codex exec --oss --local-provider ollama|lmstudio`** documented — Codex's
+  agent loop on free local weights. Verified at zero API cost. **Hard
+  constraint found by testing: the local model must support thinking**
+  (`qwen2.5:7b` fails, `gemma4:e4b` works).
+- `agy models` and `codex doctor` added to the discovery table as the real
+  probes.
+
+### Changed
+- **Model choice is now the agent's decision, made on capability.** The old
+  text said "pick the model by quota… ask the user which one has quota,"
+  turning a capability decision into an availability question the user had to
+  answer. Now: bulk work → `gpt-5.6-luna`; images or long inputs →
+  `gpt-5.4-mini`; fast interactive edits → `gpt-5.3-codex-spark`; review,
+  audits and long agentic runs → `gpt-5.6-sol`. The user is consulted only if a
+  call actually fails on quota.
+- Two published traps recorded, because both reverse the obvious choice: Terra
+  is a false economy for long agentic runs (~2.7x Sol's output tokens for fewer
+  completions), and Luna's long-context recall collapses to ~41% versus Sol's
+  ~91%.
+- `models_cache.json` demoted to low-trust — it goes stale and fails the CLI's
+  own loader. Task creation is the only authority.
+- Documented that a wrong model ID returns `400 … not supported with a ChatGPT
+  account`, which reads like "no access" but means "no such model" — the exact
+  trap that produced a false "sol/terra/luna unavailable" conclusion here.
+
+### Notes
+- **Claude Code against a local model: tested, does not work in practice.**
+  The protocol is fine — a logging mock proved `claude -p` completes, and
+  Ollama accepts every field it sends. But ~10k tokens of system prompt costs
+  41.8 s cold on an 8B model, and Claude Code sends more than that plus 4+
+  calls per turn; two runs never finished in 5 minutes. Recorded as a negative
+  result so nobody re-derives it. Use `scripts/call_local.sh` for local work.
+
 ## [0.1.0] — 2026-08-08
 
 First public release. The skill, the local-call script, a regression suite,

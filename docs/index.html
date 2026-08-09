@@ -90,9 +90,9 @@
 <body>
 
 <header class="wrap">
-  <div class="badge">v0.1.0 · MIT · bash + curl + python3 · no pip installs</div>
+  <div class="badge">v0.2.0 · MIT · 5 backends · 3 meters · every path live-tested</div>
   <h1>You're paying for AI by the token.<br><span class="free">Your PC already has some for free.</span></h1>
-  <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the local models already installed on your machine — then Codex, then Claude — in that cost and privacy order.</p>
+  <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the local models already installed on your machine — then Codex, Antigravity, and Claude — across three separate meters, in cost and privacy order.</p>
   <div class="cta">
     <a class="btn btn-primary" href="https://github.com/scottconverse/multi-model-routing-skill">View on GitHub</a>
     <a class="btn btn-ghost" href="./MANUAL.md">Read the manual</a>
@@ -167,6 +167,24 @@
   </div>
   <p style="margin-top:18px">The local model didn't just miss things — it <em>invented</em> them. Two of its ten findings were flatly contradicted by the code sitting in its own prompt: it reported a missing usage message in a script that prints one, and an unhandled error case that's handled two lines later.</p>
   <p>That's the whole argument for the ladder. A small local model is genuinely useful for bulk mechanical passes and genuinely unreliable at judgment. Route accordingly — and check its work.</p>
+</section>
+
+<section class="wrap">
+  <h2>No single agent reaches every model</h2>
+  <p>Claude Code, Codex, and Antigravity each talk to a different fleet. Routing <em>across</em> them is how you reach a model your own harness doesn't offer — often on a different meter than the one you're burning.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>System</th><th>CLI</th><th>Reaches</th></tr></thead>
+    <tbody>
+      <tr><td>Claude Code / Cowork</td><td class="num">claude</td><td>Claude tiers, any Anthropic-compatible endpoint</td></tr>
+      <tr><td>Codex</td><td class="num">codex</td><td>the GPT-5.x fleet — <strong>plus local models, free</strong></td></tr>
+      <tr><td>Antigravity</td><td class="num">agy</td><td><strong>Gemini, GPT-OSS 120B</strong>, Claude 4.6 on a separate meter</td></tr>
+      <tr><td>Ollama / LM Studio</td><td class="num">HTTP</td><td>whatever you have installed</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:18px"><strong>Two routes worth knowing.</strong> <code>codex exec --oss --local-provider ollama</code> runs Codex's full agent loop — tooling, sandboxing and all — on free local weights, at zero API cost. And <code>agy --json-schema</code> returns schema-validated JSON with a token receipt in about two seconds, which makes it the best structured-batch surface of the lot.</p>
+  <p class="muted">Both verified by live calls, not read off a help page. So was the negative result: pointing Claude Code itself at a local model is protocol-compatible but impractically slow — ~42&nbsp;s of prompt processing per call on a small model, several calls per turn. It's documented as a dead end so nobody re-derives it.</p>
 </section>
 
 <section class="wrap">

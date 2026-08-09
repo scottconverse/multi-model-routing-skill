@@ -10,22 +10,34 @@ description: >-
   or a count ("30 logs", "200 reviews", "500 records") are the signal — this
   is the required way to execute batch work, not an optional optimization, so
   invoke it before reading any files or writing any code. Also use it
-  whenever another model enters the picture: getting a second opinion from
-  Codex/GPT or any non-Claude model, using Ollama or LM Studio, offloading
-  work to save Claude quota, or asking what model backends this machine has.
+  whenever another model or agent system enters the picture: getting a second
+  opinion from Codex/GPT, Gemini, or any non-Claude model, using Ollama, LM
+  Studio, or Antigravity, reaching a model your own harness does not offer,
+  offloading work to save Claude quota, or asking what model backends this
+  machine has.
   Do not use for single-item analysis, architecture or design, security
   review, or prose writing.
 ---
 
 # Multi-Model Routing
 
-You have up to four model backends. Use them deliberately so the owner's
-Claude usage goes to work that actually needs Claude:
+You have up to five model backends, on three separate meters. Use them
+deliberately so the owner's Claude usage goes to work that actually needs
+Claude:
 
 1. **Ollama** (local) — free, private, no quota.
 2. **LM Studio** (local) — free, private, no quota.
 3. **Codex CLI** — OpenAI models, billed to the owner's ChatGPT account.
-4. **Claude subagents** (Agent tool) — billed to the owner's Claude usage.
+   Also runs its agent loop on *local* models for free (`--oss`).
+4. **Antigravity** (`agy`) — Gemini 3.6/3.5 Flash, Gemini 3.1 Pro, Claude
+   Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B. A separate meter from Claude.
+5. **Claude subagents** (Agent tool) — billed to the owner's Claude usage.
+
+**No single system reaches every model.** Antigravity is the only local route
+to Gemini and GPT-OSS, and a second, separately-billed path to Claude models.
+Codex is the only route to the GPT-5.x fleet. Routing *across* systems is how
+you reach a model your own harness doesn't offer — read
+`references/cross-agent.md` before assuming a model is unavailable.
 
 ## Before anything else: read the local notes
 
@@ -68,10 +80,16 @@ you're considering, and cache the result for the rest of the session.
 
 | Backend | Probe | Healthy looks like |
 |---|---|---|
-| Ollama | `GET http://localhost:11434/api/tags` | JSON list of models |
+| Ollama | `GET http://localhost:11434/api/tags` | JSON list of models + `capabilities` |
 | LM Studio | `GET http://localhost:1234/v1/models` | JSON list of models |
-| Codex CLI | `codex --version` then `codex login status` | version + "Logged in" |
+| Codex CLI | `codex doctor` | active model, auth mode, install health |
+| Antigravity | `agy models` | model IDs + display names |
 | Claude subagents | always available (Agent tool) | — |
+
+`agy` is usually **not on PATH** — on Windows it's at
+`%LOCALAPPDATA%\agy\bin\agy.exe`. Record the real path in local-notes.
+`codex doctor` beats `--version` + `login status`: one call, and it reports the
+configured model too.
 
 A backend counts as **available** only after it has returned a one-word smoke
 reply in this session (`scripts/call_local.sh <base-url> <model> "Reply with
@@ -119,22 +137,64 @@ keep that receipt; it backs any claim that the backend did work.
 ### Codex CLI
 
 ```bash
-codex exec --skip-git-repo-check -c model="<MODEL>" -c sandbox_mode="read-only" "task"
+codex exec -m <MODEL> -s read-only --skip-git-repo-check "task"
 ```
 
-- **Pick the model by quota, not habit.** Check local-notes for the current
-  quota situation; if the note is stale or absent, ask the user which OpenAI
-  model has quota. Pass it explicitly with `-c model=...` every time.
-- **Keep `sandbox_mode="read-only"` for questions and reviews.** Codex's
-  default is workspace-write with approval=never — it WILL edit files without
-  asking if you drop the flag. Drop it only when you intend Codex to edit.
+**Read `references/codex.md` before routing work here.** It holds the model
+capability table, two cost traps that reverse the obvious choice, the
+discovery rules, and the rest of the CLI surface.
+
+- **Choosing the model is YOUR call, made on capability — not a quota question
+  you put to the user.** These models have distinct, published strengths:
+  bulk grunt work → `gpt-5.6-luna` (or `gpt-5.4-mini` when the batch has images
+  or long inputs); fast interactive code edits → `gpt-5.3-codex-spark`; review,
+  audits and long agentic runs → `gpt-5.6-sol`. Ask the user only if a call
+  actually fails on quota.
+- **Get the ID exactly right.** A wrong model ID returns `400 … not supported
+  with a ChatGPT account`, which reads like "no access" but means "no such
+  model." Don't generalize one rejection into "that tier is unavailable."
+- **`codex review` is purpose-built for reviews** — prefer it over hand-rolling
+  a review prompt through `exec`.
+- **`--output-schema <FILE>`** gives schema-validated JSON instead of prose to
+  parse. Use it for batch work.
+- **`--oss --local-provider ollama|lmstudio`** runs Codex's own agent loop
+  against a local model — Codex's tooling and sandboxing at zero API cost.
+- **Keep `-s read-only` for questions and reviews.** The default is
+  workspace-write with approval=never — it WILL edit files without asking.
 - Multi-turn: `codex exec resume --last "follow-up"`.
+
+### Antigravity (`agy`)
+
+```bash
+agy -p "task" --model gemini-3.6-flash-low
+agy -p "task" --model <M> --output-format json --json-schema schema.json
+```
+
+**The best structured-batch surface on this machine** — verified 2.1 s for a
+schema-validated classification, with a token receipt in the same JSON.
+`--json-schema` requires `--output-format json`, or it errors.
+
+- `agy models` lists what's available — free, first-class, no equivalent in
+  Codex. Use it instead of guessing.
+- Reaches models nothing else here does: **Gemini** and **GPT-OSS 120B**, plus
+  Claude Sonnet/Opus 4.6 on a **separate meter from Claude quota**.
+- ⚠️ It injects a large system prompt — ~27k input tokens even for a one-line
+  request. Fast and structured, but not cheap per item; for very large batches
+  weigh it against a local model.
+- Details and flags: `references/cross-agent.md`.
 
 ### Claude subagents
 
 Pass `model: "haiku" | "sonnet" | "opus"` on the Agent call; use whatever
 models this session exposes. Mechanical bulk work that must stay on Claude
 goes to Haiku. Cap every fan-out, track your agents, never fire-and-forget.
+
+**Do not point Claude Code at a local model.** `ANTHROPIC_BASE_URL` is
+protocol-compatible — local servers accept every field it sends — but a large
+system prompt costs ~42 s of prompt processing per call on a small local model,
+and Claude Code makes several calls per turn. Two attempts never completed in
+5 minutes. Use `scripts/call_local.sh` for local work, where you control prompt
+size. Full findings in `references/cross-agent.md`.
 
 ## Choose the BEST local model, not just the loaded one
 

@@ -100,10 +100,13 @@ backend only counts as available after it returns a one-word smoke reply, so
 
 | Backend | Probe | Healthy looks like |
 |---|---|---|
-| Ollama | `GET http://localhost:11434/api/tags` | JSON list of models |
+| Ollama | `GET http://localhost:11434/api/tags` | models + `capabilities` |
 | LM Studio | `GET http://localhost:1234/v1/models` | JSON list of models |
-| Codex CLI | `codex --version`, `codex login status` | version + "Logged in" |
+| Codex CLI | `codex doctor` | active model, auth, install health |
+| Antigravity | `agy models` | model IDs + display names |
 | Claude subagents | always available | — |
+
+`agy` is usually **not on PATH** — on Windows, `%LOCALAPPDATA%\agy\bin\agy.exe`.
 
 ### Ollama
 
@@ -138,10 +141,52 @@ codex exec --skip-git-repo-check -c model="<MODEL>" -c sandbox_mode="read-only" 
   without asking if you drop that flag.
 - Multi-turn: `codex exec resume --last "follow-up"`.
 
+### Antigravity (`agy`)
+
+The CLI is usually **not on PATH** — on Windows it's at
+`%LOCALAPPDATA%\agy\bin\agy.exe`.
+
+```bash
+agy models                                        # free, first-class discovery
+agy -p "task" --model gemini-3.6-flash-low
+agy -p "task" --model <M> --output-format json --json-schema schema.json
+```
+
+It reaches models nothing else here does — **Gemini** and **GPT-OSS 120B** —
+and offers Claude Sonnet/Opus 4.6 on a **meter separate from your Claude
+quota**, which matters when Claude is running tight.
+
+It's also the best structured-batch surface available: `--json-schema` (which
+requires `--output-format json`) returns a parsed `structured_output` object
+plus a token receipt in the same payload, in about two seconds.
+
+⚠️ It injects a large system prompt — roughly 27k input tokens even for a
+one-line request. Fast and reliable, but not cheap per item; for very large
+batches, weigh it against a local model.
+
 ### Claude subagents
 
 Mechanical bulk work that must stay on Claude goes to Haiku. Fan-out is
 capped and tracked — never fire-and-forget.
+
+**Don't point Claude Code at a local model.** `ANTHROPIC_BASE_URL` is
+protocol-compatible — local servers accept every field Claude Code sends — but
+a large system prompt costs ~42 s of prompt processing per call on a small
+local model, and Claude Code makes several calls per turn. Tested twice; never
+completed in 5 minutes. Use `call_local.sh` instead, where you control the
+prompt size.
+
+### Codex running on your local models (free)
+
+```bash
+codex exec --oss --local-provider ollama -m gemma4:e4b -s read-only \
+  --skip-git-repo-check "task"
+```
+
+Codex's agent loop, tooling and sandbox on free local weights — verified at
+zero API cost. **The local model must support thinking**: `qwen2.5:7b` fails
+with `"does not support thinking"`, `gemma4:e4b` works. Check the
+`capabilities` array in Ollama's `/api/tags` before routing here.
 
 ---
 
