@@ -132,6 +132,13 @@ before you spend model calls on it.
 - Ollama base URL: `http://localhost:11434`. List installed models:
   `GET /api/tags` or `ollama list`. Pull new: `ollama pull <model>` (see
   model choice rules below first).
+- **The endpoint does not have to be this machine.** `call_local.sh` takes a
+  base URL, so any Ollama-compatible endpoint works — a beefier box on the LAN
+  can serve a model that won't fit in local RAM. Ask the user for the URL; do
+  not scan the network for one. ⚠️ A remote endpoint is **not private**: the
+  privacy guarantee comes from `localhost`, not from the word "local." Treat a
+  non-localhost URL exactly like a third-party cloud backend and get an
+  explicit OK before sending anything sensitive.
 - LM Studio base URL: `http://localhost:1234`. Loaded models:
   `GET /v1/models`; everything downloaded: `lms ls`; load:
   `lms load <model-key> -c <context>`; download: `lms get <search>`.
@@ -219,6 +226,21 @@ but be deliberate, and say which meter you're spending.
 Pass `model: "haiku" | "sonnet" | "opus"` on the Agent call; use whatever
 models this session exposes. Mechanical bulk work that must stay on Claude
 goes to Haiku. Cap every fan-out, track your agents, never fire-and-forget.
+
+**Delegate WHAT, never HOW.** Give a subagent the outcome and let it choose the
+route. Don't hand it the URL to fetch, the search query to run, or a numbered
+procedure — that spends your tokens writing instructions the agent could
+derive, and it caps the result at your guess rather than its investigation. A
+brief should be self-contained and state the goal, the constraints, and what
+"done" looks like. If you find yourself writing step 3, you're doing the work
+twice.
+
+**Consider routing the routing.** Deciding *where* work goes is classification,
+and classification is exactly what small local models do well — a 7B scored
+12/12 on the batch benchmark in `references/local-backends.md`. On a long
+sweep, having a local model pre-sort items by "needs judgment / mechanical"
+costs nothing and keeps premium tokens for the work itself rather than the
+dispatch. Review its split before acting on it, same as any local output.
 
 **You drive local models constantly — that's this whole skill.** Use
 `scripts/call_local.sh`. It works, it's fast, and it produces receipts.

@@ -4,6 +4,33 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Three ideas adopted after reading [Warden](https://github.com/domdoss/Warden),
+a local-first personal assistant with a hybrid routing architecture. Ideas
+only — that repo currently ships **no LICENSE file** despite its README naming
+MIT, so no code was taken.
+
+### Added
+- **"Local" means the endpoint, not the machine.** `call_local.sh` takes a base
+  URL and has no localhost assumption, so any Ollama-compatible endpoint works
+  — including one on another box, which is the escape hatch for models that
+  don't fit in local RAM. **Verified** against a non-localhost address.
+  **Not** verified end-to-end: Ollama binds `127.0.0.1` by default and the
+  serving host needs `OLLAMA_HOST=0.0.0.0`, so it's one config change on that
+  box, not zero. The privacy warning is sharpened to match — the guarantee
+  comes from `localhost`, not from the word "local," and a remote endpoint is a
+  third-party backend for consent purposes.
+- **"Delegate WHAT, never HOW."** Give a subagent the outcome and let it pick
+  the route; prescribing URLs, queries or numbered steps spends tokens writing
+  instructions the agent could derive and caps the result at your guess.
+- **Consider routing the routing.** Deciding where work goes *is*
+  classification, which is what small local models measurably do well (7B
+  scored 12/12 on the batch benchmark). On a long sweep, a local model can
+  pre-sort items by "needs judgment / mechanical" for free, keeping premium
+  tokens for the work rather than the dispatch. Warden's core bet is a 12B
+  orchestrating frontier models; our own measurement supports it.
+
 ## [0.3.0] — 2026-08-09
 
 Proof release. The routing advice was sound but the skill had never been

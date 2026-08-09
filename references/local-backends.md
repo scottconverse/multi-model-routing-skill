@@ -96,7 +96,44 @@ weights, not for simple one-shot prompts.
 
 ---
 
-## 6. RAM discipline
+## 6. "Local" means the endpoint, not the machine
+
+`call_local.sh` takes a base URL and does not care where it points. Any
+Ollama-compatible endpoint works, including one on another machine:
+
+```bash
+call_local.sh http://192.168.1.50:11434 gemma-4-26b "..." 2048
+```
+
+That's the escape hatch when a model won't fit locally — the 26B that failed at
+17.5 GB free here would load fine on a box with 32 GB, reached over the LAN
+with no code change.
+
+**Verified (client side):** `call_local.sh` against `http://172.25.208.1:18877`
+— a non-localhost address — returned normally with a valid receipt. The script
+has no localhost assumption.
+
+⚠️ **Not verified end-to-end**, because there's no second machine here: the
+*serving* side needs configuring. **Ollama binds `127.0.0.1` by default** and
+will not answer on a LAN address — pointing at this machine's own LAN IP failed
+with connection refused until proven otherwise. The serving host must start
+Ollama with `OLLAMA_HOST=0.0.0.0` (and open the firewall). So "point it at
+another box" is one config change on that box, not zero.
+
+⚠️ **A remote endpoint is not private.** The privacy property comes from
+`localhost`, not from the word "local." Once the URL is a different host, the
+prompt leaves this machine and the same rule applies as for any third-party
+cloud backend: get an explicit OK before sending anything sensitive. The script
+enforces nothing here — it will POST wherever you point it.
+
+Ask the user for the URL. Do not probe the network looking for one.
+
+*(Pattern borrowed from [Warden](https://github.com/domdoss/Warden), which
+keeps named Ollama servers with per-role assignment and a fallback chain —
+assigned server, then default, then first configured, then a global URL. Worth
+copying if this ever needs more than one remote.)*
+
+## 7. RAM discipline
 
 Free RAM is the real constraint, not disk. Measured here: 25.8 GB total, and
 free RAM swung between 3.0 GB and 14.0 GB during a single session depending on
