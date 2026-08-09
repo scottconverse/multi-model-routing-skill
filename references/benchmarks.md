@@ -4,28 +4,111 @@ Which model belongs in which tier is a claim about capability. Claims in this
 repo are backed by evidence, and a number someone typed into prose six months
 ago is not evidence — it's a fossil.
 
-**Reference of record: [Artificial Analysis](https://artificialanalysis.ai/).**
-Consult it when assigning a model to a tier, when a tier assignment looks
-wrong, or when a model you haven't seen before appears in a roster. Don't
-re-derive rankings from a web search — that's how stale numbers get laundered
-into confident prose.
+**Reference of record: [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks).**
+A non-profit research institute, publishing under
+**[CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) — free to use,
+distribute and reproduce with attribution.** No account, no API key, no
+redistribution restriction. Consult it when assigning a model to a tier, when
+an assignment looks wrong, or when an unfamiliar model appears in a roster.
+
+Don't re-derive rankings from a web search — that's how stale numbers get
+laundered into confident prose.
+
+### Why this source and not a gated one
+
+Benchmark scores are **published facts**. The labs and academic groups that ran
+MMLU, GPQA, SWE-bench, Terminal-Bench and the rest published them; aggregators
+collect them. A composite index built on top is the aggregator's own derived
+work and theirs to license — but the underlying results are not proprietary,
+and paying for access to facts someone else measured is a choice, not a
+requirement.
+
+Epoch AI publishes both the collected results **and** its own composite (the
+Epoch Capabilities Index) under CC-BY. So numbers from here **may be quoted in
+this repo** with the citation below. That is the practical difference: an
+Artificial Analysis free-tier key forbids redistribution, so anything pulled
+from it can never appear in shipped docs.
+
+**Required attribution** (include it wherever these numbers appear):
+
+> Epoch AI, 'AI Benchmarking Hub'. Published online at epoch.ai.
+> Retrieved from https://epoch.ai/benchmarks
 
 ---
 
-## 1. The three indices, and which one to use
+## 0. Get the data — one command, no key
 
-| Index | What it measures | Use it for |
+```bash
+curl -sSL -o benchmark_data.zip https://epoch.ai/data/benchmark_data.zip
+unzip -o benchmark_data.zip
+```
+
+*Verified 2026-08-09 from this machine:* HTTP 200, ~452 KB, **75+ benchmark
+CSVs**, updated that same day. A Python client also exists
+(`pip install epochai`) if relationships between entities matter more than flat
+files.
+
+### The files that matter for routing
+
+| File | Use |
+|---|---|
+| `epoch_capabilities_index.csv` | **the headline composite (ECI)** — 815 model rows, the default comparison |
+| `swe_bench_verified.csv`, `deepswe_external.csv`, `terminalbench_external.csv`, `aider_polyglot_external.csv` | coding |
+| `os_world_external.csv`, `osworld_2_external.csv`, `the_agent_company_external.csv`, `apex_agents_external.csv` | agentic / tool use |
+| `gpqa_diamond.csv`, `mmlu_external.csv`, `hle_external.csv`, `live_bench_external.csv` | general reasoning |
+
+`epoch_capabilities_index.csv` carries **`Model accessibility`**, which marks
+open weights versus API-only — the column that makes local-versus-cloud a
+direct comparison rather than a guess.
+
+### Measured 2026-08-09, one scale, cloud and local together
+
+| Model | ECI | Access |
 |---|---|---|
-| **Intelligence Index** | composite across ~9 evals | general capability, the default sort |
-| **Coding Agent Index** | pass@1 across DeepSWE, Terminal-Bench, SWE-Atlas-QnA | code work — the one that matters most here |
-| **Agentic Index** | tool use, planning, autonomy | anything running a multi-step loop |
+| `gpt-5.6-sol` | 161.65 | API |
+| `claude-opus-5` | 161.02 | API |
+| `gpt-5.6-terra` | 158.96 | API |
+| `gpt-5.6-luna` | 156.13 | API |
+| `claude-sonnet-5` | 155.53 | API |
+| `gemini-3.6-flash` | 153.98 | API |
+| **`deepseek-v4-flash`** | **152.53** | **open weights** |
+| **`deepseek-v4-pro`** | **149.07** | **open weights** |
+| `gpt-5.4-mini` | 148.91 | API |
+| **`gemma-4-31b-it`** | **142.28** | **open weights** |
+| **`gpt-oss-120b`** | **140.48** | **open weights** |
 
-A model that tops Intelligence is not automatically the right pick for an
-agentic loop. Match the index to the job.
+Two things fall out of that immediately, and neither was visible before:
 
-## 2. The official Data API — the path that actually works
+- **`deepseek-v4-flash` (open weights, 152.53) outscores `gpt-5.4-mini`
+  (148.91)** — a paid tier this skill routes to. On capability alone, a model
+  you could run yourself beats one you're paying for.
+- **`gpt-oss-120b` (140.48)** is reachable free through Antigravity
+  (`cross-agent.md`), so a 120B open model is already one command away.
 
-**There is a free public API, and it returns exactly what routing needs.**
+Neither is a routing instruction on its own — RAM, speed and the measured
+results in `local-backends.md` still decide. But this is the comparison the
+skill was missing.
+
+---
+
+## 1. Which measure for which job
+
+| Job | Epoch AI file | Artificial Analysis equivalent |
+|---|---|---|
+| general capability, default sort | `epoch_capabilities_index.csv` (ECI) | Intelligence Index |
+| code work | `swe_bench_verified.csv`, `deepswe_external.csv`, `terminalbench_external.csv` | Coding Agent Index |
+| tool use, multi-step loops | `os_world_external.csv`, `the_agent_company_external.csv` | Agentic Index |
+
+A model topping the general composite is not automatically right for an agentic
+loop. Match the measure to the job — and prefer the raw benchmark to a
+composite when the job is narrow, since a composite averages away exactly the
+thing you care about.
+
+## 2. Artificial Analysis — the gated alternative
+
+Use Epoch AI first. Artificial Analysis is a reasonable cross-check when you
+want a second opinion on a specific model, and its free API works — but its
+terms make it the weaker default for this repo.
 
 ```bash
 curl -H "x-api-key: $AA_API_KEY" \
@@ -131,18 +214,18 @@ Use it that way:
 - **When picking what to pull**, sort open weights by the index that matches
   the job and check it fits in RAM (`local-backends.md`).
 
-## Fallbacks if the API is unavailable
+## Fallbacks
 
 If there is no key, or the daily quota is spent, say so — do not substitute a
 guess. Options, in order:
 
-1. **Ask the owner.** He maintains a working comparison set and can read the
-   numbers off the page in seconds.
-2. **The OpenRouter MCP** (`list-benchmarks source=artificial-analysis`) carries
-   the same indices second-hand, when its connector is authenticated.
-3. **Aggregators** — `llm-stats.com`, `benchlm.ai`, Vellum's leaderboard. Several
-   of these source from Artificial Analysis themselves, so treat them as the
-   same claim relayed, not as independent confirmation.
+1. **Epoch AI's ZIP** — no key, CC-BY, one curl. This should almost never fail.
+2. **Ask the owner.** He maintains a working comparison set.
+3. **The OpenRouter MCP** (`list-benchmarks source=artificial-analysis`), when
+   its connector is authenticated.
+4. **Aggregators** — `llm-stats.com`, `benchlm.ai`, Vellum's leaderboard. Several
+   source from Artificial Analysis themselves, so treat them as the same claim
+   relayed, not independent confirmation.
 
 What is NOT acceptable: scraping the site to work around the API, or reciting a
 remembered ranking as though it were looked up. The page is
@@ -151,7 +234,7 @@ if a number appears without a call behind it, it was invented.
 
 ## 5. Rules
 
-- **Cite the index and the date** when a tier assignment rests on it. "Chosen
+- **Cite the source, the index and the date** when a tier assignment rests on it. "Chosen
   on Coding Agent Index, checked 2026-08-09" ages honestly; "it's better at
   code" does not.
 - **Re-check before trusting a stale assignment.** This field moves monthly.
