@@ -4,6 +4,61 @@ All notable changes to multi-model-routing are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.3.2] — 2026-08-09
+
+Four defect fixes and one drift guard, from a code read by the agent working on
+[WorkflowWright](https://github.com/scottconverse/WorkflowWright). Every finding
+was reproduced before being fixed; where one didn't reproduce as reported, the
+correction is recorded rather than quietly smoothed over.
+
+### Fixed
+- **`--uninstall` could destroy a git checkout.** The documented personal
+  install *is* the git working copy, so the `SKILL.md` guard passed and
+  `rmtree` took `.git` with it. On Windows this surfaced as an uncaught
+  `PermissionError` traceback with the install **half-deleted**; on POSIX,
+  unlink permission comes from the parent directory, so it would remove the
+  history outright. Uninstall now refuses any directory containing
+  `.git`/`.hg`/`.svn`, names the marker, and exits 0. Proven against the real
+  checkout: 22 files before, 22 after.
+- **The preserved-notes backup overwrote itself.** install → uninstall →
+  install → uninstall wrote freshly templated notes over the backup holding
+  every accumulated machine fact — data loss inside the feature meant to
+  prevent it. Backups are now numbered and never overwritten.
+- **An installed copy had no uninstaller.** `install.py` wasn't in `PAYLOAD`,
+  so removing an install required the original clone. It now ships with every
+  install.
+- **After refusing, the program still printed "Uninstalled."** Not on the
+  report list; found while fixing. The closing message now reflects whether
+  anything was actually removed.
+
+### Added
+- **The prompt no longer has to fit in argv.** `-` reads stdin, `file:PATH`
+  reads a file, and the literal form is unchanged. `curl` also stopped taking
+  the body as an argument (`--data-binary @FILE` instead of `-d "$BODY"`) —
+  without that, the ceiling would have stayed exactly where it was. Verified
+  against real Ollama with a 24 KB prompt (`in=12533`).
+  ⚠️ The file sigil is **`file:PATH`, not `@PATH`**: Git Bash on Windows
+  expands a leading `@` as a *response file* before the script runs, so
+  `@p.txt` containing "alpha beta gamma" arrives as three arguments and
+  silently shifts everything after it. `@FILE` would have shipped that bug.
+- **A drift guard with teeth.** Every tracked file must be in `PAYLOAD` or in
+  an explicit `NOT_SHIPPED` list, enforced by a test — "forgotten" is no longer
+  a state this repo can be in. Proven by adding a dummy doc and watching the
+  suite go red naming it.
+- **`docs/MANUAL.md` now ships with installs.** Shipping the test suite while
+  withholding the human manual was backwards.
+- **`install()` prunes stale files**, so a file renamed between versions no
+  longer lingers where the agent might still read it. Never touches
+  `local-notes.md` or a VCS directory.
+
+### Corrected from the report
+The argv finding predicted *silent* truncation at the first newline, producing
+a plausible answer from a cut input. That did not reproduce. A 15 KB prompt
+arrived intact with all 299 newlines; oversized prompts fail **loudly** —
+`Argument list too long` (exit 1) via Git Bash, `The command line is too long.`
+via a `.cmd` shim. It is a capability limit, not a correctness trap. Worth
+fixing, but nobody has been silently getting wrong answers.
+
 ## [0.3.1] — 2026-08-09
 
 Three ideas adopted after reading [Warden](https://github.com/domdoss/Warden),

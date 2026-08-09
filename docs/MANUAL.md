@@ -270,12 +270,31 @@ Never assume a tool is present just because another agent has it.
 ## 5. Calling a local model by hand
 
 ```bash
-scripts/call_local.sh <base-url> <model> <prompt> [max_tokens]
+scripts/call_local.sh <base-url> <model> <prompt|-|file:PATH> [max_tokens]
 ```
 
 ```bash
+# literal — fine for short prompts
 scripts/call_local.sh http://localhost:11434 qwen2.5:7b "Reply with exactly: OK" 512
+
+# from a file — use this for anything large
+scripts/call_local.sh http://localhost:11434 qwen2.5:7b file:prompt.txt 2048
+
+# from stdin — the natural form inside a batch loop
+cat big.log | scripts/call_local.sh http://localhost:11434 qwen2.5:7b - 2048
 ```
+
+**Use `-` or `file:` for real inputs.** A literal prompt has to fit in the OS
+argument limit, and a batch input will exceed it: past ~32k, curl fails with
+`Argument list too long`; through a `.cmd` shim the whole command line caps
+near 8k with `The command line is too long.` Both fail loudly rather than
+truncating — you won't get a quiet wrong answer — but the call simply won't
+run. Reading a file or stdin has no such limit.
+
+⚠️ **The file sigil is `file:PATH`, deliberately not `@PATH`.** Git Bash on
+Windows expands a leading `@` as a *response file* before the script starts:
+`@p.txt` containing "alpha beta gamma" arrives as three separate arguments and
+silently shifts every argument after it.
 
 It sends an Anthropic-format request to `<base-url>/v1/messages`, and falls
 back to OpenAI-format `/v1/chat/completions` if the server says it doesn't
@@ -542,10 +561,22 @@ python3 install.py --uninstall --project DIR
 **Your `local-notes.md` is preserved**, copied to
 `multi-model-routing.local-notes.backup.md` beside where the skill was, and the
 path is printed. Those are your measured machine facts — the uninstaller won't
-throw them away.
+throw them away. Repeat uninstalls get `.backup.2.md`, `.backup.3.md` and so
+on; **an existing backup is never overwritten**, because the one it would
+overwrite is the one holding everything you'd learned.
 
-It also refuses to delete a directory that has no `SKILL.md` in it, so a
-mistyped `--project` can't take out something unrelated.
+Two refusals protect you:
+
+- **No `SKILL.md` in the directory** → nothing is deleted, so a mistyped
+  `--project` can't take out something unrelated.
+- **A `.git`/`.hg`/`.svn` directory is present** → nothing is deleted. If you
+  installed by cloning (the documented personal install), the install *is* your
+  git working copy, and removing it would delete your repository history —
+  including commits you haven't pushed. Uninstall says so and stops. Remove it
+  with git, or delete the directory yourself once you're sure.
+
+Every install carries its own `install.py`, so you can uninstall from the
+install itself without going back to the original clone.
 
 By hand works just as well:
 

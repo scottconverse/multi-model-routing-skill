@@ -91,10 +91,33 @@ python3 install.py --uninstall          # add --list to preview
 ```
 
 Your `local-notes.md` is preserved beside where the skill was, and the path is
-printed — those are your measured machine facts, not disposable. By hand,
-`rm -rf ~/.claude/skills/multi-model-routing` does the same job; nothing else
-is installed anywhere. Any MCP servers you registered live in the agent's own
-config and are unaffected.
+printed — those are your measured machine facts, not disposable. Repeat
+uninstalls get numbered backups; an existing one is never overwritten.
+
+**It refuses to delete a git checkout.** If you installed by cloning, the
+install *is* your working copy, and removing it would take your repository
+history with it. Uninstall stops and says so. It also refuses any directory
+without a `SKILL.md`, so a mistyped `--project` can't destroy something else.
+
+Every install ships its own `install.py`, so you can uninstall from the install
+itself. Any MCP servers you registered live in the agent's own config and are
+unaffected.
+
+## Large prompts
+
+`scripts/call_local.sh` takes the prompt three ways — a literal argument, `-`
+for stdin, or `file:PATH`:
+
+```bash
+cat big.log | scripts/call_local.sh http://localhost:11434 qwen2.5:7b - 2048
+```
+
+Use `-` or `file:` for real inputs. A literal prompt must fit in the OS
+argument limit, and a batch input won't: it fails loudly (`Argument list too
+long`, or `The command line is too long.` through a `.cmd` shim) rather than
+truncating. The sigil is `file:` and not `@` because Git Bash on Windows
+expands a leading `@` as a response file, silently splitting the file's
+contents into separate arguments.
 
 ## "Local" doesn't have to mean this machine
 
