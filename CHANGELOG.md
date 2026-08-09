@@ -204,8 +204,11 @@ correction is recorded rather than quietly smoothed over.
   install *is* the git working copy, so the `SKILL.md` guard passed and
   `rmtree` took `.git` with it. On Windows this surfaced as an uncaught
   `PermissionError` traceback with the install **half-deleted**; on POSIX,
-  unlink permission comes from the parent directory, so it would remove the
-  history outright. Uninstall now refuses any directory containing
+  unlink permission comes from the parent directory, so it removes the history
+  outright. *(Measured on WSL Ubuntu 26.04 on 2026-08-09, not inferred: a plain
+  `shutil.rmtree` over a git checkout succeeded silently and took `.git` with
+  it. The Windows crash is incidental protection; the guard is what actually
+  protects a POSIX user.)* Uninstall now refuses any directory containing
   `.git`/`.hg`/`.svn`, names the marker, and exits 0. Proven against the real
   checkout: 22 files before, 22 after.
 - **The preserved-notes backup overwrote itself.** install → uninstall →

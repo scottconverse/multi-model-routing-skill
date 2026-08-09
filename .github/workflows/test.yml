@@ -8,21 +8,28 @@ on:
 
 jobs:
   suite:
-    name: call_local.sh suite (${{ matrix.os }})
+    name: suite (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # Windows is not decoration: every defect this repo has shipped was
-        # Windows-specific (CreateProcess can't exec a .sh, bash swallowing
-        # backslashes, the WSL shim being the wrong bash, CRLF via autocrlf).
+        # Windows is not decoration: several defects here were Windows-specific
+        # (CreateProcess can't exec a .sh, bash swallowing backslashes, the WSL
+        # shim being the wrong bash, CRLF via autocrlf). Linux is not
+        # decoration either: the exec bit and rmtree-over-a-checkout only
+        # misbehave there.
         os: [ubuntu-latest, windows-latest]
+        # Span the interpreter range rather than pinning one. A test helper
+        # once used shutil.rmtree(onexc=), which is 3.12+, and passed locally
+        # on 3.13 while dying on CI's 3.11. Testing the oldest and newest
+        # supported versions catches that class on arrival.
+        python-version: ['3.11', '3.13']
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
 
       - name: Run call_local.sh suite
         shell: bash

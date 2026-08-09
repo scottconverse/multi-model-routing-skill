@@ -39,6 +39,30 @@ Every bug fixed in `scripts/call_local.sh` gets a regression test in the same
 change. The suite exists because six real defects were found by an audit, and
 each one is now a case in it.
 
+## Verify on Linux before you trust a Windows result
+
+Windows hides POSIX problems. Three defects in this repo were invisible here
+and would have shipped:
+
+- `benchmarks.sh` was committed non-executable — `ls` reported `rwxr-xr-x`
+  while git recorded `644`, because the working-tree execute bit means nothing
+  on Windows.
+- `shutil.rmtree` over a git checkout **dies partway** on Windows (read-only
+  git objects) but **succeeds silently** on Linux, destroying history.
+- A CRLF working copy runs under Git Bash but is rejected outright by a POSIX
+  bash.
+
+If you have WSL, use it — clone inside its **own** filesystem, not `/mnt/c`,
+or DrvFs will lie about permissions just like Windows does:
+
+```bash
+wsl -d Ubuntu -- bash -c 'cd ~ && git clone <repo> t && cd t   && python3 tests/test_call_local.py && python3 tests/test_install.py'
+```
+
+Verified on Ubuntu 26.04 / Python 3.14 alongside CI's 3.11 and Windows' 3.13 —
+three interpreter versions, which is how the `rmtree(onexc=)` 3.12+ slip was
+caught.
+
 ## What must not change
 
 - **`references/local-notes.md` is git-ignored and stays that way.** It holds
