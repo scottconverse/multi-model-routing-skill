@@ -48,6 +48,11 @@ NOT_SHIPPED = [
     "CHANGELOG.md",                    # repo history, not skill behaviour
     "CONTRIBUTING.md",                 # for contributors, not users
     "docs/DISCUSSIONS_SEED.md",        # GitHub Discussions material
+    "docs/index.html",                 # the landing page, published via Pages
+    "docs/.nojekyll",                  # Pages build hint
+    ".gitignore",                      # repo hygiene; an install is not a repo
+    ".gitattributes",                  # ditto -- LF pinning matters in the repo
+    ".github/workflows/test.yml",      # CI belongs to the repo, not an install
 ]
 
 # Directories that mark a working copy under version control. Uninstalling one
@@ -86,29 +91,38 @@ def install(dest_root, dry_run=False):
             if rel.endswith(".sh"):
                 os.chmod(tgt, 0o755)
 
-    # Prune anything left from an older version. Without this, a file renamed
-    # between releases keeps its old copy in the install forever and the agent
-    # may still read the stale one. Never touches local-notes.md (yours) or a
-    # VCS directory.
+    # Prune anything left from an older version, so a file renamed between
+    # releases stops lingering where the agent might still read it. Never
+    # touches local-notes.md (yours).
+    #
+    # NEVER prune inside a working copy. The documented personal install IS the
+    # git checkout, and everything tracked-but-not-in-PAYLOAD lives there:
+    # .gitignore, .gitattributes, .github/workflows/, docs/index.html, the
+    # changelog. Skipping only paths under .git/ was not enough -- those files
+    # sit beside it, not inside it. Pruning is for copied installs; in a
+    # checkout, git already does this job.
     if dest.exists():
-        keep = {(dest / rel).resolve() for rel in PAYLOAD}
-        keep.add((dest / "references" / "local-notes.md").resolve())
-        for path in sorted(dest.rglob("*")):
-            if not path.is_file():
-                continue
-            if any(part in VCS_MARKERS for part in path.parts):
-                continue
-            if path.resolve() in keep:
-                continue
-            actions.append(f"  {'would prune' if dry_run else 'pruned'} stale: "
-                           f"{path.relative_to(dest).as_posix()}")
-            if not dry_run:
-                path.unlink()
+        checkout = next((m for m in VCS_MARKERS if (dest / m).exists()), None)
+        if checkout:
+            actions.append(f"  skipped pruning: {checkout}/ is present, so this is a"
+                           " working copy and git manages stale files here")
+        else:
+            keep = {(dest / rel).resolve() for rel in PAYLOAD}
+            keep.add((dest / "references" / "local-notes.md").resolve())
+            for path in sorted(dest.rglob("*")):
+                if not path.is_file():
+                    continue
+                if path.resolve() in keep:
+                    continue
+                actions.append(f"  {'would prune' if dry_run else 'pruned'} stale: "
+                               f"{path.relative_to(dest).as_posix()}")
+                if not dry_run:
+                    path.unlink()
 
     notes = dest / "references" / "local-notes.md"
     tmpl = dest / "references" / "local-notes.example.md"
     if notes.exists():
-        actions.append("  local-notes.md already exists — left untouched (it's yours)")
+        actions.append("  local-notes.md already exists - left untouched (it's yours)")
     elif dry_run:
         actions.append("  would create local-notes.md from the template")
     else:
@@ -134,7 +148,7 @@ def uninstall(dest_root, dry_run=False):
     actions = []
     if not dest.exists():
         REMOVED.append(False)
-        return dest, ["  not installed here — nothing to do"]
+        return dest, ["  not installed here - nothing to do"]
 
     if not (dest / "SKILL.md").is_file():
         REMOVED.append(False)
@@ -155,7 +169,7 @@ def uninstall(dest_root, dry_run=False):
             "  skill, including any commits you have not pushed.",
             "",
             "  Nothing was deleted. If you meant to remove it, do that with git",
-            "  — or delete the directory yourself once you're sure the history",
+            "  - or delete the directory yourself once you're sure the history",
             "  is pushed or unwanted.",
         ]
 
@@ -218,14 +232,14 @@ def main():
         print("\n(--list: nothing was changed)")
     elif args.uninstall:
         if any(REMOVED):
-            print("\nUninstalled. Nothing else was installed anywhere — no config "
+            print("\nUninstalled. Nothing else was installed anywhere - no config "
                   "edits, no services, no registry entries.")
             print("Any MCP servers you registered are separate and stay put; remove "
                   "them with your agent's own tooling if you want them gone.")
         else:
             print("\nNothing was removed. See the reason above each target.")
     else:
-        print("\nDone. The folder name must stay 'multi-model-routing' — that's "
+        print("\nDone. The folder name must stay 'multi-model-routing' - that's "
               "what SKILL.md's name: field expects.")
         print("Start a new agent session to pick it up.")
 

@@ -119,6 +119,56 @@ with tempfile.TemporaryDirectory() as td:
         check("an installed copy can uninstall itself", not d.exists(),
               (r.stdout + r.stderr)[-200:])
 
+# ── install must never prune inside a VCS working copy ───────────────────────
+# The documented Claude Code install IS the git checkout. Pruning there deleted
+# every tracked file not in PAYLOAD -- .gitignore, .gitattributes,
+# .github/workflows/, docs/index.html, CHANGELOG -- because the VCS skip only
+# covered paths INSIDE .git/. Pruning exists to clean stale files out of a
+# copied install; in a checkout git already does that job.
+if have_git():
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        run("--project", str(t))
+        d = t / ".claude" / "skills" / SKILL
+        subprocess.run(["git", "init", "-q"], cwd=d, capture_output=True, timeout=60)
+        # files a real checkout has that PAYLOAD does not list
+        (d / ".gitignore").write_text("references/local-notes.md\n", encoding="utf-8")
+        (d / ".gitattributes").write_text("* text=auto eol=lf\n", encoding="utf-8")
+        (d / "CHANGELOG.md").write_text("# Changelog\n", encoding="utf-8")
+        (d / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+        (d / ".github" / "workflows" / "test.yml").write_text("name: test\n", encoding="utf-8")
+
+        r = run("--project", str(t))          # reinstall over the checkout
+
+        check("install into a checkout keeps .gitignore", (d / ".gitignore").is_file())
+        check("install into a checkout keeps .gitattributes", (d / ".gitattributes").is_file())
+        check("install into a checkout keeps CHANGELOG.md", (d / "CHANGELOG.md").is_file())
+        check("install into a checkout keeps .github/workflows",
+              (d / ".github" / "workflows" / "test.yml").is_file())
+        check("install into a checkout says it skipped pruning",
+              "prun" in (r.stdout + r.stderr).lower())
+        force_rmtree(d)
+
+# ── printed output must survive a legacy console codepage ────────────────────
+# cp437 is the historic cmd.exe default and has no em dash. An em dash in a
+# print() raised UnicodeEncodeError mid-install, after files had been copied,
+# leaving a partial install. cp1252 hides it: that codepage HAS the character.
+src = (ROOT / "install.py").read_text(encoding="utf-8")
+printed = []
+for line in src.splitlines():
+    s = line.strip()
+    if s.startswith("#"):
+        continue                      # comments are never printed
+    if "print(" in s or "actions.append(" in s or "sys.exit(" in s or 'return dest, [' in s:
+        printed.append(line)
+bad = []
+for line in printed:
+    try:
+        line.encode("cp437")
+    except UnicodeEncodeError as e:
+        bad.append(f"{e.object[e.start:e.end]!r} in: {line.strip()[:60]}")
+check("printed strings are cp437-safe", not bad, "; ".join(bad[:3]))
+
 # ── payload drift guard ──────────────────────────────────────────────────────
 # PAYLOAD is hand-maintained, so a new reference doc could silently fail to
 # ship. That is the same drift that left the 0.3.0 and 0.3.1 docs behind the
@@ -130,12 +180,13 @@ import install as installer  # noqa: E402
 SHIPPED = set(installer.PAYLOAD)
 EXCLUDED = set(getattr(installer, "NOT_SHIPPED", []))
 
+# No extension filter: the guard's set must be the SAME set prune operates on,
+# or the two drift apart and the guard stops meaning anything. Every tracked
+# file is named in one list or the other -- .gitignore, .gitattributes,
+# docs/index.html, docs/.nojekyll and the workflow included.
 tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
                          text=True, timeout=60).stdout.split()
-candidates = [f for f in tracked
-              if f.endswith((".md", ".sh", ".py"))
-              and not f.startswith((".github/", "docs/notes"))]
-unaccounted = sorted(set(candidates) - SHIPPED - EXCLUDED)
+unaccounted = sorted(set(tracked) - SHIPPED - EXCLUDED)
 check("every tracked file is shipped or explicitly excluded", not unaccounted,
       f"add to PAYLOAD or NOT_SHIPPED: {unaccounted}")
 

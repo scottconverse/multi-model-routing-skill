@@ -173,7 +173,9 @@ else:  # OpenAI format
 print(receipt, file=sys.stderr)
 
 if not text.strip():
-    print("call_local.sh: server replied 200 but the visible text was empty — "
+    # ASCII only: cmd.exe defaults to cp437, which has no em dash, and a
+    # UnicodeEncodeError here would replace a clear diagnostic with a traceback.
+    print("call_local.sh: server replied 200 but the visible text was empty - "
           "raise max_tokens (reasoning models spend hidden tokens first)",
           file=sys.stderr)
     sys.exit(2)

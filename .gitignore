@@ -2,3 +2,8 @@
 # Describes one machine, so it never belongs in version control. Start from
 # references/local-notes.example.md instead.
 references/local-notes.md
+
+# Python bytecode. tests/test_install.py imports install.py to check the
+# payload lists, which creates these; one got committed by accident in 0.3.2.
+__pycache__/
+*.pyc
