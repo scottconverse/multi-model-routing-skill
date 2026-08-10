@@ -29,8 +29,10 @@ Claude:
    it sits above Codex.
 4. **Codex CLI** — OpenAI models, billed to the owner's ChatGPT account.
    Also runs its agent loop on *local* models for free (`--oss`).
-5. **Antigravity** (`agy`) — Gemini 3.6/3.5 Flash, Gemini 3.1 Pro, Claude
-   Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B. A separate meter from Claude.
+5. **Antigravity** (`agy`) — reaches multiple Gemini tiers, Claude on a
+   separate meter, and free GPT-OSS 120B. `agy models` is live and
+   authoritative; don't trust a remembered list, including this one — see
+   `references/cross-agent.md` for current tiers and which job wants which.
 6. **Claude subagents** (Agent tool) — billed to the owner's Claude usage.
 
 **No single system reaches every model.** Antigravity is the only local route
@@ -253,7 +255,9 @@ discovery rules, and the rest of the CLI surface.
   bulk grunt work → `gpt-5.6-luna` (or `gpt-5.4-mini` when the batch has images
   or long inputs); fast interactive code edits → `gpt-5.3-codex-spark`; review,
   audits and long agentic runs → `gpt-5.6-sol`. Ask the user only if a call
-  actually fails on quota.
+  actually fails on quota. **These slugs are prose, not a live source — they
+  will drift.** `scripts/codex_models.sh --list` reads Codex's own model
+  cache; check it before trusting a slug you have not used recently.
 - **Get the ID exactly right.** A wrong model ID returns `400 … not supported
   with a ChatGPT account`, which reads like "no access" but means "no such
   model." Don't generalize one rejection into "that tier is unavailable."
@@ -305,9 +309,11 @@ but be deliberate, and say which meter you're spending.
 
 ### Claude subagents
 
-Pass `model: "haiku" | "sonnet" | "opus"` on the Agent call; use whatever
-models this session exposes. Mechanical bulk work that must stay on Claude
-goes to Haiku. Cap every fan-out, track your agents, never fire-and-forget.
+Pass `model: "haiku" | "sonnet" | "opus" | "fable"` on the Agent call — the
+tool's own enum is the live source of truth here, and it already updates every
+session on its own; nothing in this skill needs to track it separately.
+Mechanical bulk work that must stay on Claude goes to Haiku. Cap every
+fan-out, track your agents, never fire-and-forget.
 
 **Delegate WHAT, never HOW.** Give a subagent the outcome and let it choose the
 route. Don't hand it the URL to fetch, the search query to run, or a numbered

@@ -11,7 +11,13 @@ this says *which model* and *which command*.
 question you escalate to the user.** These models have published, distinct
 strengths — use them. Only ask the user if a call actually fails on quota.
 
-| Task | Model | Why |
+**Before trusting a specific slug below, confirm it still exists:**
+`scripts/codex_models.sh --list`. The *reasoning* in this table — which job
+shape wants which tier — is durable. The *slugs* are not; OpenAI renames and
+retires them, and this table has no mechanism of its own to notice. See §2 for
+what `codex_models.sh` actually reads and how fresh it is.
+
+| Task | Tier (verify the exact slug live) | Why |
 |---|---|---|
 | **Bulk grunt work** — tagging, classifying, field extraction, ticket/log summaries, short routine drafts | `gpt-5.6-luna` | Purpose-built for high-volume, well-defined, rule-clear jobs. Cheapest and fastest. This is literally its design brief and it maps exactly onto what this skill calls grunt work. |
 | **Bulk work needing images or a big context** | `gpt-5.4-mini` | 400k context, vision, strong agentic reliability, very cheap. Use over Luna when the batch involves images or long inputs. |
@@ -19,6 +25,13 @@ strengths — use them. Only ask the user if a call actually fails on quota.
 | **Serious code review, audits, long agentic runs** | `gpt-5.6-sol` | Flagship. Leads the Coding Agent Index; best long-horizon completion *and* the fewest tokens to get there. |
 | **Balanced one-shot work**, not long-horizon | `gpt-5.6-terra` | GPT-5.5-level quality at roughly half the cost — but see the trap below. |
 | Prior generation | `gpt-5.5`, `gpt-5.4` | No reason to prefer these over Terra/Sol unless reproducing older behavior. |
+
+*Verified 2026-08-10: all six slugs above are present in the live cache on
+this machine.* The cache also carries `gpt-5.6-sol-wm` (a routing alias, not a
+direct choice) and `codex-auto-review` (Codex's own internal review model, not
+meant for this table) — `codex_models.sh`'s default output lists everything in
+the cache; this table's curation is what says which entries are worth picking
+from, not the cache itself.
 
 ### Two traps worth knowing
 
@@ -54,9 +67,21 @@ be stale or wrong.
 | Source | Value | Trust |
 |---|---|---|
 | Actually running a task | definitive | **authoritative** |
-| `codex doctor` | active model, auth mode, MCP count, install health | high — reflects live config |
+| `codex doctor` | active model, auth mode, MCP count, install health | high — reflects live config. **Does NOT refresh the model cache** — verified 2026-08-10, running it left `models_cache.json`'s mtime untouched. |
 | `~/.codex/config.toml` | the configured default (`model = …`) | high, but it's a *default*, not a capability list |
-| `~/.codex/models_cache.json` | server-fetched list + etag | **low — known to go stale and to fail the CLI's own loader (`missing field 'base_instructions'`)**. Read it for candidate IDs, never as proof of availability. |
+| `~/.codex/models_cache.json`, read via **`scripts/codex_models.sh`** | server-fetched list + etag, refreshed on a real `codex exec` call (verified: mtime moved exactly when one ran) | **medium.** On 2026-08-08 this was low-trust here — stale, and missing `base_instructions` broke the CLI's own loader. Re-checked live 2026-08-10 (client 0.145–0.147): fresh (age 0.0 days), complete, all 33 fields including `base_instructions` present, 9 models. Both findings are kept — the earlier failure may recur on a different Codex version or a colder cache, so still treat this as a fast, free **narrowing** step, never as final proof a model will accept a real call. |
+
+**How to read the cache without hand-parsing JSON:**
+
+```bash
+scripts/codex_models.sh                    # every model: slug, name, description
+scripts/codex_models.sh --model gpt-5.6-sol   # one model, full detail incl. context window
+scripts/codex_models.sh --list             # slugs only
+```
+
+If the cache is missing or looks stale, the fix is **one real `codex exec`
+call** — not `codex doctor`, which was the first thing tried here and verified
+not to help.
 
 **Get the IDs exactly right.** A wrong ID returns
 `400 invalid_request: model not supported with a ChatGPT account` — which

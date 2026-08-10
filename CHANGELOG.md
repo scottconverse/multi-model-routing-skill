@@ -10,6 +10,71 @@ Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
+## [0.3.10] - 2026-08-10
+
+Extends live model discovery to Codex and Antigravity, matching the pattern
+Ollama and LM Studio already had via `/api/tags` and `/v1/models`. Prompted by
+Scott noticing `references/codex.md`'s model table listed specific slugs as
+hardcoded prose with nothing checking them against reality.
+
+### Added
+- **`scripts/codex_models.sh`** — reads Codex's own `~/.codex/models_cache.json`
+  (respecting `$CODEX_HOME`), the cache Codex CLI maintains as part of its own
+  normal operation. Verified live on this machine: 9 models, `fetched_at` age
+  0.0 days. **Verified specifically which command refreshes it**: `codex
+  doctor` does not touch the cache's mtime; a real `codex exec` call does —
+  confirmed both ways rather than assumed, since the wrong answer would have
+  shipped as documentation telling users to run the wrong command.
+  `--model NAME` for full detail, `--list` for slugs only, `--json` for raw
+  passthrough (SIGPIPE-safe when piped into `head`/`jq`).
+- **`tests/test_codex_models.py`** — 29 checks, fixture-driven via
+  `CODEX_MODELS_CACHE`, needs no real Codex install. Includes a deliberately
+  sparse fixture entry (most fields absent) because a rich-only fixture would
+  not have caught a `m["field"]` vs `m.get("field")` mistake.
+- **A live-selection heuristic for Antigravity**, in `references/cross-agent.md`
+  — `agy models` was already documented as live and authoritative; what was
+  missing was which tier to pick for which job, mapped by capability rather
+  than by exact slug (Google renames tiers the same way OpenAI does).
+- **`references/codex.md`'s model table now says to verify before trusting a
+  slug**, via `scripts/codex_models.sh --list`. The job-shape reasoning stays
+  — it is durable — but the exact IDs are now a checked claim, not a permanent
+  one. The existing "models_cache.json is low-trust" finding (2026-08-08,
+  `missing field 'base_instructions'`) is kept, not overwritten; today's live
+  check found the cache fresh and complete on the current Codex version, and
+  both dated findings stand side by side.
+- **A `bash -n` syntax guard for every shipped script**, added to
+  `test_install.py`. `codex_models.sh` shipped three separate syntax errors
+  during development — an f-string quoting bug, then a "fix" that used
+  single-quoted Python strings which broke the *bash* single-quoted block
+  those strings lived inside, then the same thing again from an apostrophe in
+  a comment ("CI's 3.11"). Re-reading the file by eye missed it three times
+  running. `bash -n` is free, needs no execution, and catches this class
+  immediately — proven by feeding it a reintroduced copy of the exact bug.
+- Claude subagent model docs now mention `fable`, which the Agent tool's own
+  enum already accepted — `SKILL.md` only listed three of the four.
+
+### Fixed
+- **The new bash-syntax guard was blind to its own subject on arrival.**
+  `git ls-files scripts/*.sh` only sees tracked files, so it silently checked
+  the two already-committed scripts and never `codex_models.sh` itself, which
+  was untracked at the moment the guard was written — the exact defect class
+  this repo has hit six times now, freshly reintroduced in the guard meant to
+  catch a different one. Fixed by unioning with `--others --exclude-standard`,
+  the same fix the payload-drift guard needed for the same reason.
+- **That same guard then failed differently once fixed**, discovered by
+  running the shipped suite from a real install with no `.git` anywhere: a
+  completed `git ls-files` with a non-zero return code (running outside any
+  repository) is not success with empty output, but the guard only checked
+  `is not None` and treated it as one, reporting "(0) scripts checked" instead
+  of falling back to a directory glob. Fixed to check the return code too,
+  matching the pattern `git_files()` already used correctly elsewhere in this
+  file — inlined rather than calling that helper, since it is defined later
+  in the file and calling it here would repeat an ordering bug from earlier
+  the same day.
+
+Suites 16 + 29 + 29 + 31 = 105 green on Windows/py3.13, WSL Ubuntu
+26.04/py3.14/bash 5.3.9 (bash -n run against real POSIX bash, not Git Bash's
+emulation), and with git entirely absent.
 ## [0.3.9] - 2026-08-10
 
 ### Fixed

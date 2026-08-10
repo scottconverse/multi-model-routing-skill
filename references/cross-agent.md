@@ -72,6 +72,25 @@ The Gemini tiers are close enough in latency that the `-high`/`-medium`/`-low`
 suffix should be chosen on reasoning depth, not speed — the exception was one
 60 s cold start, so budget for a slow first call per model.
 
+### Which model for which job
+
+Run `agy models` first — this maps *tiers*, not exact IDs, because Google
+renames and adds tiers over time the same way OpenAI does (see `codex.md`'s §1
+for the identical caveat on that side). Apply this reasoning to whatever the
+live list actually contains:
+
+| Job | Tier | Why |
+|---|---|---|
+| Bulk grunt work, high volume | a Flash `-low`/`-medium` tier | Cheapest, fastest (~4 s here), and the tier Google positions for exactly this. |
+| Work needing deeper reasoning, still routine | a Flash `-high` tier or Gemini Pro `-low` | One step up without paying Pro's full cost. |
+| Genuinely hard reasoning, multi-step | Gemini Pro `-high` | The deepest tier Antigravity reaches on the Gemini side. |
+| Claude-quality output, Claude quota tight | `claude-sonnet-4-6` or `claude-opus-4-6-thinking` | Same model family, **different meter** — the single most useful fact in this file when Claude usage is running tight. Opus-class in 8 s here. |
+| Free, open-weights, no quota concern at all | `gpt-oss-120b-*` | Zero cost on any meter; the only free tier this backend reaches. |
+
+This is a starting heuristic, not a locked mapping — it exists so a choice gets
+made without re-deriving it from zero, not to replace judgment when a job's
+shape is genuinely ambiguous.
+
 ### Structured output — the best batch surface here
 
 ```bash

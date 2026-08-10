@@ -210,6 +210,79 @@ else:
     for missed in CHECKOUT_PRUNE_CHECKS:
         skip(missed, "git is not installed, so no checkout can be built")
 
+# ── every shipped script must be valid bash, checked before it is run ────────
+# codex_models.sh shipped three separate syntax errors during development, all
+# the same root cause: a bash `python3 -c '...'` block has no escape for an
+# embedded single quote, and one turned up not just in code (an f-string, then
+# a "fixed" version that used single-quoted Python strings instead) but in a
+# COMMENT ("CI's 3.11" -- an apostrophe). Re-reading the file by eye missed it
+# three times in a row. `bash -n` is a syntax-only check, no execution, and it
+# catches this class immediately and mechanically -- proven by feeding it a
+# deliberately reintroduced copy of the exact bug and watching it fail with
+# the identical "unexpected token" this file's problems actually produced.
+def find_bash():
+    """Same resolution as test_call_local.py and test_benchmarks.py: on
+    Windows `bash` is the WSL shim, which cannot resolve C:/ paths."""
+    if sys.platform != "win32":
+        return "bash"
+    found = shutil.which("bash")
+    if found and "system32" not in found.lower() and "windowsapps" not in found.lower():
+        return found
+    git = shutil.which("git")
+    if git:
+        cand = pathlib.Path(git).resolve().parent.parent / "bin" / "bash.exe"
+        if cand.is_file():
+            return str(cand)
+    for cand in (r"C:\Program Files\Git\bin\bash.exe",
+                 r"C:\Program Files (x86)\Git\bin\bash.exe"):
+        if pathlib.Path(cand).is_file():
+            return cand
+    return None
+
+
+bash_bin = find_bash()
+if bash_bin is None:
+    skip("every shipped script is syntactically valid bash",
+         "no POSIX bash found on this machine")
+else:
+    # git ls-files ALONE only sees tracked files. That is precisely what let
+    # this guard ship blind to codex_models.sh itself -- brand new, untracked
+    # at the moment this check was written, so `git ls-files scripts/*.sh`
+    # silently returned only the two already-committed scripts and this check
+    # passed having verified nothing. Union with --others --exclude-standard,
+    # the same fix the payload drift guard above already needed for the exact
+    # same reason.
+    # Inlined rather than calling the git_files() helper below: that helper
+    # is defined later in this file (the payload-drift section), and calling
+    # it here would be the exact ordering bug already hit once today
+    # (skill_md used before its own assignment). Same correctness rule as
+    # git_files(): a completed git_run() with returncode != 0 -- e.g. run
+    # outside any repository at all, which is exactly a real installed copy
+    # with no .git anywhere -- is NOT success with empty output. Checking
+    # only `is not None` let that case through as "0 scripts found" rather
+    # than "unknown, fall back to the glob": found by running this guard
+    # from an actual install, not from the checkout, the same category of
+    # miss that shipped the docs/index.html crash two commits ago.
+    tracked_r = git_run("ls-files", "scripts/*.sh", cwd=ROOT)
+    untracked_r = git_run("ls-files", "--others", "--exclude-standard",
+                          "scripts/*.sh", cwd=ROOT)
+    tracked_ok = tracked_r is not None and tracked_r.returncode == 0
+    untracked_ok = untracked_r is not None and untracked_r.returncode == 0
+    if tracked_ok and untracked_ok:
+        scripts_to_check = sorted(set(tracked_r.stdout.split())
+                                  | set(untracked_r.stdout.split()))
+    else:
+        scripts_to_check = sorted(p.relative_to(ROOT).as_posix()
+                                  for p in (ROOT / "scripts").glob("*.sh"))
+    bad_syntax = []
+    for rel in scripts_to_check:
+        r = subprocess.run([bash_bin, "-n", str(ROOT / rel)],
+                           capture_output=True, text=True, timeout=30)
+        if r.returncode != 0:
+            bad_syntax.append(f"{rel}: {r.stderr.strip().splitlines()[-1] if r.stderr.strip() else 'syntax error'}")
+    check(f"every shipped script ({len(scripts_to_check)}) is syntactically valid bash",
+          scripts_to_check and not bad_syntax, "; ".join(bad_syntax))
+
 # ── printed output must survive a legacy console codepage ────────────────────
 # cp437 is the historic cmd.exe default and has no em dash. An em dash in a
 # print() raised UnicodeEncodeError mid-install, after files had been copied,
