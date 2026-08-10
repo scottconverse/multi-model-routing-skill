@@ -6,6 +6,10 @@ All notable changes to multi-model-routing are documented here. Format follows
 
 ## [Unreleased]
 
+Kept current from here on. Reconstructing several commits' worth of changes at
+tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
+should be a rename of this heading, not an archaeology exercise.
+
 ### Fixed
 - **The published landing page was stale one tag after the fact.** `v0.3.6`
   added OpenCode Zen to the routing ladder and rewrote the privacy rule, but
@@ -21,10 +25,6 @@ All notable changes to multi-model-routing are documented here. Format follows
   `docs/MANUAL.md`, `docs/index.html` — are now checked against the roster
   `SKILL.md` declares. Roster names are normalised (`Codex CLI` matches a table
   cell reading `Codex`) so the check fails for drift, not for phrasing.
-
-Kept current from here on. Reconstructing several commits' worth of changes at
-tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
-should be a rename of this heading, not an archaeology exercise.
 
 ## [0.3.6] - 2026-08-09
 
