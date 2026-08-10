@@ -6,6 +6,22 @@ All notable changes to multi-model-routing are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+- **The published landing page was stale one tag after the fact.** `v0.3.6`
+  added OpenCode Zen to the routing ladder and rewrote the privacy rule, but
+  `docs/index.html` still drew a four-tier ladder without it and still carried
+  the sentence the rewrite removed: *"never to a third-party cloud without your
+  say-so"* — the claim this tool breaks on every call. That was live on
+  <https://scottconverse.github.io/multi-model-routing-skill/>. Ladder redrawn
+  to five tiers, backend table updated, privacy note replaced with the honest
+  version, meta description corrected.
+- **The roster drift test no longer exempts the landing page.** It was excluded
+  as "a marketing surface, not a reference" and went stale within a single tag,
+  which is what an exemption buys you. All three human surfaces — `README.md`,
+  `docs/MANUAL.md`, `docs/index.html` — are now checked against the roster
+  `SKILL.md` declares. Roster names are normalised (`Codex CLI` matches a table
+  cell reading `Codex`) so the check fails for drift, not for phrasing.
+
 Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.

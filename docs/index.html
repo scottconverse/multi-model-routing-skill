@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>multi-model-routing — stop spending premium AI on grunt work</title>
-<meta name="description" content="A Claude Code / Cowork skill that routes batch and mechanical work to the free LLMs already running on your machine (Ollama, LM Studio), then Codex, then Claude — in that cost and privacy order. Local output never ships unreviewed.">
+<meta name="description" content="A Claude Code / Cowork skill that routes batch and mechanical work to the free LLMs already running on your machine (Ollama, LM Studio), then free cloud models (OpenCode Zen), then Codex, then Claude — cheapest meter first. Local output never ships unreviewed.">
 <style>
   :root {
     --bg: #0f1117; --panel: #171a23; --panel2: #1d2130;
@@ -109,46 +109,52 @@
 <section class="wrap">
   <h2>The ladder</h2>
   <figure>
-    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Routing ladder: local models first, then Codex, then Haiku, then premium Claude, with cost rising and privacy falling">
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Routing ladder: local models first, then OpenCode Zen which is free, then Codex, then Haiku, then premium Claude, with cost rising left to right">
       <defs>
         <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0 0 L10 5 L0 10 z" fill="#8b90a0"/>
         </marker>
       </defs>
-      <text x="20" y="26" fill="#8b90a0" font-size="13" font-family="ui-monospace,Consolas,monospace">cost →</text>
-      <line x1="70" y1="21" x2="700" y2="21" stroke="#2a2f40" stroke-width="1" marker-end="url(#arr)"/>
+      <text x="12" y="26" fill="#8b90a0" font-size="13" font-family="ui-monospace,Consolas,monospace">cost →</text>
+      <line x1="62" y1="21" x2="708" y2="21" stroke="#2a2f40" stroke-width="1" marker-end="url(#arr)"/>
 
-      <rect x="20" y="45" width="150" height="86" rx="9" fill="#171a23" stroke="#4ecf8a" stroke-width="1.5"/>
-      <text x="95" y="70" text-anchor="middle" fill="#4ecf8a" font-size="14" font-weight="600" font-family="system-ui">Local</text>
-      <text x="95" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">Ollama · LM Studio</text>
-      <text x="95" y="109" text-anchor="middle" fill="#d7dae2" font-size="12.5" font-family="ui-monospace,Consolas,monospace">free · private</text>
+      <rect x="12" y="45" width="128" height="86" rx="9" fill="#171a23" stroke="#4ecf8a" stroke-width="1.5"/>
+      <text x="76" y="70" text-anchor="middle" fill="#4ecf8a" font-size="14" font-weight="600" font-family="system-ui">Local</text>
+      <text x="76" y="89" text-anchor="middle" fill="#8b90a0" font-size="11" font-family="system-ui">Ollama · LM Studio</text>
+      <text x="76" y="108" text-anchor="middle" fill="#d7dae2" font-size="11.5" font-family="ui-monospace,Consolas,monospace">free · private</text>
 
-      <rect x="196" y="45" width="150" height="86" rx="9" fill="#171a23" stroke="#2a2f40"/>
-      <text x="271" y="70" text-anchor="middle" fill="#d9a441" font-size="14" font-weight="600" font-family="system-ui">Codex</text>
-      <text x="271" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">OpenAI models</text>
-      <text x="271" y="109" text-anchor="middle" fill="#8b90a0" font-size="12.5" font-family="ui-monospace,Consolas,monospace">leaves machine</text>
+      <rect x="154" y="45" width="128" height="86" rx="9" fill="#171a23" stroke="#4ecf8a" stroke-width="1.5"/>
+      <text x="218" y="70" text-anchor="middle" fill="#4ecf8a" font-size="14" font-weight="600" font-family="system-ui">OpenCode Zen</text>
+      <text x="218" y="89" text-anchor="middle" fill="#8b90a0" font-size="11" font-family="system-ui">no key, no account</text>
+      <text x="218" y="108" text-anchor="middle" fill="#d7dae2" font-size="11.5" font-family="ui-monospace,Consolas,monospace">free · cloud</text>
 
-      <rect x="372" y="45" width="150" height="86" rx="9" fill="#171a23" stroke="#2a2f40"/>
-      <text x="447" y="70" text-anchor="middle" fill="#d9a441" font-size="14" font-weight="600" font-family="system-ui">Haiku</text>
-      <text x="447" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">bulk, on Claude</text>
-      <text x="447" y="109" text-anchor="middle" fill="#8b90a0" font-size="12.5" font-family="ui-monospace,Consolas,monospace">cheap tier</text>
+      <rect x="296" y="45" width="128" height="86" rx="9" fill="#171a23" stroke="#2a2f40"/>
+      <text x="360" y="70" text-anchor="middle" fill="#d9a441" font-size="14" font-weight="600" font-family="system-ui">Codex</text>
+      <text x="360" y="89" text-anchor="middle" fill="#8b90a0" font-size="11" font-family="system-ui">OpenAI models</text>
+      <text x="360" y="108" text-anchor="middle" fill="#8b90a0" font-size="11.5" font-family="ui-monospace,Consolas,monospace">your quota</text>
 
-      <rect x="548" y="45" width="152" height="86" rx="9" fill="#171a23" stroke="#e0645f" stroke-width="1.5"/>
-      <text x="624" y="70" text-anchor="middle" fill="#e0645f" font-size="14" font-weight="600" font-family="system-ui">Premium Claude</text>
-      <text x="624" y="90" text-anchor="middle" fill="#8b90a0" font-size="12" font-family="system-ui">reasoning · review</text>
-      <text x="624" y="109" text-anchor="middle" fill="#8b90a0" font-size="12.5" font-family="ui-monospace,Consolas,monospace">reserve it</text>
+      <rect x="438" y="45" width="128" height="86" rx="9" fill="#171a23" stroke="#2a2f40"/>
+      <text x="502" y="70" text-anchor="middle" fill="#d9a441" font-size="14" font-weight="600" font-family="system-ui">Haiku</text>
+      <text x="502" y="89" text-anchor="middle" fill="#8b90a0" font-size="11" font-family="system-ui">bulk, on Claude</text>
+      <text x="502" y="108" text-anchor="middle" fill="#8b90a0" font-size="11.5" font-family="ui-monospace,Consolas,monospace">cheap tier</text>
 
-      <line x1="170" y1="88" x2="196" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
-      <line x1="346" y1="88" x2="372" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
-      <line x1="522" y1="88" x2="548" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="580" y="45" width="128" height="86" rx="9" fill="#171a23" stroke="#e0645f" stroke-width="1.5"/>
+      <text x="644" y="70" text-anchor="middle" fill="#e0645f" font-size="13.5" font-weight="600" font-family="system-ui">Premium Claude</text>
+      <text x="644" y="89" text-anchor="middle" fill="#8b90a0" font-size="11" font-family="system-ui">reasoning · review</text>
+      <text x="644" y="108" text-anchor="middle" fill="#8b90a0" font-size="11.5" font-family="ui-monospace,Consolas,monospace">reserve it</text>
 
-      <text x="20" y="170" fill="#8b90a0" font-size="13" font-family="system-ui">Escalate only when the tier below fails review twice — never loop in place.</text>
-      <line x1="20" y1="192" x2="700" y2="192" stroke="#2a2f40" stroke-dasharray="4 4"/>
-      <text x="20" y="216" fill="#4ecf8a" font-size="13.5" font-family="system-ui" font-weight="600">Privacy runs the other way:</text>
-      <text x="210" y="216" fill="#8b90a0" font-size="13.5" font-family="system-ui">local keeps everything on the machine. Codex ships it to OpenAI.</text>
-      <text x="20" y="238" fill="#8b90a0" font-size="13.5" font-family="system-ui">Sensitive material goes local or premium — never to a third-party cloud without your say-so.</text>
+      <line x1="140" y1="88" x2="154" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="282" y1="88" x2="296" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="424" y1="88" x2="438" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="566" y1="88" x2="580" y2="88" stroke="#8b90a0" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <text x="12" y="170" fill="#8b90a0" font-size="13" font-family="system-ui">Escalate only when the tier below fails review twice — never loop in place.</text>
+      <line x1="12" y1="192" x2="708" y2="192" stroke="#2a2f40" stroke-dasharray="4 4"/>
+      <text x="12" y="216" fill="#4ecf8a" font-size="13.5" font-family="system-ui" font-weight="600">Privacy, honestly:</text>
+      <text x="140" y="216" fill="#8b90a0" font-size="13.5" font-family="system-ui">only the first tier keeps data on your machine. Everything right of it</text>
+      <text x="12" y="238" fill="#8b90a0" font-size="13.5" font-family="system-ui">is somebody's cloud — Claude included. So pick on cost, and keep genuinely sensitive material local.</text>
     </svg>
-    <figcaption>Cost rises left to right. Privacy falls. Work starts at the cheapest tier that can do it.</figcaption>
+    <figcaption>Cost rises left to right. Work starts at the cheapest tier that can do it. Only the leftmost box keeps your data on the machine.</figcaption>
   </figure>
 </section>
 
@@ -192,6 +198,7 @@
       <tr><td>Codex</td><td class="num">codex</td><td>the GPT-5.x fleet — <strong>plus local models, free</strong></td></tr>
       <tr><td>Antigravity</td><td class="num">agy</td><td><strong>Gemini, GPT-OSS 120B</strong>, Claude 4.6 on a separate meter</td></tr>
       <tr><td>Ollama / LM Studio</td><td class="num">HTTP</td><td>whatever you have installed</td></tr>
+      <tr><td>OpenCode Zen</td><td class="num">HTTP</td><td><strong>free models, no API key and no account</strong></td></tr>
     </tbody>
   </table>
   </div>

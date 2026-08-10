@@ -426,22 +426,37 @@ with tempfile.TemporaryDirectory() as td:
 # adding a backend means touching all three. Read the roster from SKILL.md
 # rather than hand-keeping a list here, so a seventh backend is covered the
 # moment it lands.
+#
+# docs/index.html IS included. It was exempted once as "a marketing surface,
+# not a reference" -- and it went stale within a single tag: the published
+# landing page still showed a four-tier ladder with no OpenCode Zen, and still
+# carried the privacy line that was rewritten for being untrue. An exemption is
+# a promise that a surface does not matter; this one was wrong within hours.
 skill_md = (ROOT / "SKILL.md").read_text(encoding="utf-8")
 roster_block = skill_md.split("model backends", 1)[-1].split("## ", 1)[0]
 backends = re.findall(r"^\d+\.\s+\*\*(.+?)\*\*", roster_block, re.M)
-# Match on the distinctive first word: "Claude subagents" is written many ways
-# across surfaces, "OpenCode Zen" and "LM Studio" are not.
-KEYS = {b: b.split(" (")[0].strip() for b in backends}
+# Normalise to the distinctive product name: SKILL.md says "Codex CLI" where a
+# table cell reasonably says "Codex". Matching the raw roster string would fail
+# for a naming choice rather than for real drift.
+KEYS = {}
+for b in backends:
+    key = b.split(" (")[0].strip()
+    for suffix in (" CLI", " subagents"):
+        if key.endswith(suffix):
+            key = key[: -len(suffix)]
+    KEYS[b] = key
+SURFACES = ("README.md", "docs/MANUAL.md", "docs/index.html")
 missing = []
-for surface in ("README.md", "docs/MANUAL.md"):
+for surface in SURFACES:
     text = (ROOT / surface).read_text(encoding="utf-8")
     for full, key in KEYS.items():
-        if key.split()[0] == "Claude":
-            continue          # named a dozen ways; not a useful drift signal
+        if key == "Claude":
+            continue          # appears everywhere; carries no drift signal
         if key not in text:
             missing.append(f"{surface} is missing {key!r}")
-check(f"every backend in SKILL.md's roster ({len(KEYS)}) is named in README and MANUAL",
-      backends and not missing, f"roster={list(KEYS.values())} {missing}")
+check(f"every backend in SKILL.md's roster ({len(KEYS)}) is named on all "
+      f"{len(SURFACES)} human surfaces", backends and not missing,
+      f"roster={sorted(KEYS.values())} {missing}")
 
 # ── nothing may spawn git except through git_run() ───────────────────────────
 # The instance was three unguarded call sites that killed the suite on a
