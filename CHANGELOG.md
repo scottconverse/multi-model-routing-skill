@@ -10,6 +10,8 @@ Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
+## [0.3.7] - 2026-08-09
+
 ### Fixed
 - **The published landing page was stale one tag after the fact.** `v0.3.6`
   added OpenCode Zen to the routing ladder and rewrote the privacy rule, but
@@ -25,6 +27,9 @@ should be a rename of this heading, not an archaeology exercise.
   `docs/MANUAL.md`, `docs/index.html` — are now checked against the roster
   `SKILL.md` declares. Roster names are normalised (`Codex CLI` matches a table
   cell reading `Codex`) so the check fails for drift, not for phrasing.
+- **`docs/index.html` gained Open Graph and Twitter Card meta tags.** The
+  published landing page had none — sharing the link showed a bare URL, no
+  title, no description, no card. Text-only for now; no image asset exists.
 
 ## [0.3.6] - 2026-08-09
 
