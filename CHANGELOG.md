@@ -10,6 +10,23 @@ Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
+## [0.3.9] - 2026-08-10
+
+### Fixed
+- **`SKILL.md`'s `description` field exceeded claude.ai's own 1024-character
+  upload limit.** It shipped at 967 chars, already tight, and grew to 1068
+  when OpenCode Zen was added to the trigger list two releases ago — nothing
+  checked it against the platform's actual constraint, so the first anyone
+  learned of it was the upload dialog rejecting the file outright: *"field
+  'description' in SKILL.md must be at most 1024 characters."* Trimmed to 953
+  chars (71 of margin) without dropping any trigger phrase — the batch-work
+  signal, the backend list, or the exclusion clause.
+- **A regression test now enforces the limit.** Extracts the folded YAML
+  block scalar with a targeted regex — no PyYAML import, so the suite still
+  runs on bare stdlib everywhere it always has — and fails if the field ever
+  exceeds 1024 chars again. Proven to fire: padding the field on purpose
+  produced the same 1024 failure the upload dialog would, and the file
+  restores cleanly to a full pass.
 ## [0.3.8] - 2026-08-10
 
 ### Fixed

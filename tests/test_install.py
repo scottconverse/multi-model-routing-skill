@@ -419,6 +419,36 @@ with tempfile.TemporaryDirectory() as td:
     check("pruning preserves local-notes.md content",
           notes.is_file() and "MY MACHINE FACTS" in notes.read_text(encoding="utf-8"))
 
+# ── SKILL.md's frontmatter must respect claude.ai's own upload limits ────────
+# Not hypothetical: the description grew past 1024 chars when OpenCode Zen was
+# added to the trigger list, and the first anyone learned of it was claude.ai's
+# own upload dialog rejecting the file -- "field 'description' in SKILL.md must
+# be at most 1024 characters". Nothing in 72 prior checks validated the one
+# field a human never reads but the platform enforces on every upload.
+def folded_field(fm_text, key):
+    """A `key: >-` YAML folded block scalar's resolved string.
+
+    Deliberately not a general YAML parser and no PyYAML import -- every check
+    in this suite runs on bare stdlib so it cannot break on a machine that
+    installs skills but never pips anything. This file has exactly one shape
+    to handle: `key: >-` then 2-space-indented lines until the next top-level
+    key or the closing `---`.
+    """
+    m = re.search(rf"^{key}:\s*>-\s*\n((?:  .+\n?)+)", fm_text, re.M)
+    return " ".join(l.strip() for l in m.group(1).splitlines() if l.strip()) \
+        if m else None
+
+
+skill_md_src = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+frontmatter = skill_md_src.split("---", 2)[1]
+skill_description = folded_field(frontmatter, "description")
+check("SKILL.md's description field exists and is a folded block scalar",
+      skill_description is not None)
+if skill_description is not None:
+    check("SKILL.md's description is within claude.ai's 1024-char upload limit",
+          len(skill_description) <= 1024,
+          f"{len(skill_description)} chars, {len(skill_description) - 1024} over")
+
 # ── every backend SKILL.md lists must appear on the human surfaces ───────────
 # Doc drift has been the single most repeated defect in this repo. The backend
 # roster is the thing most likely to drift next: it lives in SKILL.md's
@@ -432,8 +462,7 @@ with tempfile.TemporaryDirectory() as td:
 # landing page still showed a four-tier ladder with no OpenCode Zen, and still
 # carried the privacy line that was rewritten for being untrue. An exemption is
 # a promise that a surface does not matter; this one was wrong within hours.
-skill_md = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-roster_block = skill_md.split("model backends", 1)[-1].split("## ", 1)[0]
+roster_block = skill_md_src.split("model backends", 1)[-1].split("## ", 1)[0]
 backends = re.findall(r"^\d+\.\s+\*\*(.+?)\*\*", roster_block, re.M)
 # Normalise to the distinctive product name: SKILL.md says "Codex CLI" where a
 # table cell reasonably says "Codex". Matching the raw roster string would fail

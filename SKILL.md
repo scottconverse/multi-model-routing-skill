@@ -1,22 +1,19 @@
 ---
 name: multi-model-routing
 description: >-
-  Use this skill any time a request means repeating one operation across many
-  items, whatever the domain: summarizing all the logs or documents in a
-  folder, converting or reformatting every file in a directory,
-  tagging/classifying hundreds of rows, reviews, or records, sweeping a
-  codebase to collect TODOs or comments, or generating dozens-to-hundreds of
-  fake/test records. Phrases like "every file", "all of them", a folder path,
-  or a count ("30 logs", "200 reviews", "500 records") are the signal — this
-  is the required way to execute batch work, not an optional optimization, so
-  invoke it before reading any files or writing any code. Also use it
-  whenever another model or agent system enters the picture: getting a second
-  opinion from Codex/GPT, Gemini, or any non-Claude model, using Ollama, LM
-  Studio, OpenCode Zen, or Antigravity, reaching a model your own harness does
-  not offer, offloading work to save Claude quota, or asking what model
-  backends this machine has.
-  Do not use for single-item analysis, architecture or design, security
-  review, or prose writing.
+  Use this skill any time a request repeats one operation across many items:
+  summarizing all the logs or documents in a folder, reformatting every file
+  in a directory, tagging or classifying hundreds of rows, reviews, or
+  records, sweeping a codebase for TODOs, or generating dozens-to-hundreds of
+  test records. Phrases like "every file", "all of them", a folder path, or a
+  count ("30 logs", "200 reviews") are the signal -- this is the required way
+  to execute batch work, not an optional optimization, so invoke it before
+  reading any files or writing any code. Also use it whenever another model
+  or agent system enters the picture: Ollama, LM Studio, OpenCode Zen,
+  Antigravity, Codex/GPT, Gemini, or any non-Claude model -- reaching a model
+  your own harness does not offer, offloading work to save Claude quota, or
+  asking what model backends this machine has. Do not use for single-item
+  analysis, architecture or design, security review, or prose writing.
 ---
 
 # Multi-Model Routing
