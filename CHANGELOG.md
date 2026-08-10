@@ -11,6 +11,22 @@ tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
 ### Added
+- **OpenCode Zen is in the routing ladder**, above Codex, because it is free.
+  No API key and no account: `GET https://opencode.ai/zen/v1/models` lists 61
+  models and the `-free` ones need no credentials. *Verified 2026-08-09 from
+  this machine:* a one-word reply in **9.1 s**, `[receipt] in=88 out=21`. It is
+  an OpenAI-dialect gateway, so callers pass `CALL_LOCAL_DIALECT=openai` rather
+  than letting `auto` probe — Zen serves `/v1/messages` only for paid Claude
+  models. On the open benchmark data `deepseek-v4-flash-free` scores 152.53,
+  above `gpt-5.4-mini` at 148.91, a paid tier further down the same ladder.
+  The capability already existed through `call_local.sh`; what was missing was
+  automatic placement.
+- **A drift test for the backend roster.** The roster lives in three places —
+  `SKILL.md`'s numbered list, `README.md`'s opening paragraph and
+  `docs/MANUAL.md`'s cost table — and adding a backend means touching all
+  three. The test reads the roster *from `SKILL.md`* and asserts each name
+  appears on the human surfaces, so a seventh backend is covered the moment it
+  lands. Doc drift has been this repo's most repeated defect.
 - **`--limit N` and `--refresh` are documented.** Both were implemented and
   validated but reached no reader — absent from `references/benchmarks.md`
   (the file the skill tells the agent to load), `docs/MANUAL.md` and
@@ -20,6 +36,23 @@ should be a rename of this heading, not an archaeology exercise.
 - **WSL as a real Linux surface**, plus a CI Python matrix (3.11 and 3.13 on
   Ubuntu and Windows). A test helper had used `shutil.rmtree(onexc=)`, which is
   3.12+, and passed locally on 3.13 while dying on CI's 3.11.
+
+### Changed
+- **The privacy rule was dishonest and has been rewritten.** It said not to
+  send content to "a third-party cloud backend without an explicit OK" — a rule
+  this tool violates on every call, since the harness running it sends
+  everything to Anthropic, Codex to OpenAI and Antigravity to Google. A rule
+  that forbids what you are already doing is not a rule. The docs now say it
+  plainly: only the local backends keep data on the machine, everything else is
+  somebody's cloud, so **pick on cost** — and the distinction that actually
+  matters is account-bound (Codex, Antigravity, Claude, under your own accounts
+  and terms) versus anonymous (Zen's free tier: no key, no commitment, no
+  controllable quota). Genuinely sensitive material stays local.
+- **Ten audit reports collapsed into one post-mortem.** They had reached 913
+  lines against 117 lines of product change in the same span. `docs/audits/`
+  now holds a single 71-line file keeping the two defect classes worth
+  remembering and the practice that caught them; the detail lives in
+  `git log v0.3.5..`.
 
 ### Fixed
 - **The payload drift guard could not run where it ships.** Outside a checkout

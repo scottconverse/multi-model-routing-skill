@@ -6,17 +6,23 @@
 
 A [Claude Code](https://claude.com/claude-code) / Claude Cowork / Antigravity
 skill that routes batch and mechanical work across whatever model backends are
-actually available on the machine — local LLMs (Ollama, LM Studio), the Codex
-CLI (OpenAI models), Antigravity (`agy`: Gemini, GPT-OSS 120B, Claude 4.6), and
-Claude itself — instead of defaulting everything to premium Claude usage.
+actually available on the machine — local LLMs (Ollama, LM Studio), OpenCode
+Zen (free cloud models, no API key), the Codex CLI (OpenAI models), Antigravity
+(`agy`: Gemini, GPT-OSS 120B, Claude 4.6), and Claude itself — instead of
+defaulting everything to premium Claude usage.
 
 Grunt work (log triage, bulk tagging, format conversion, first-draft
 docstrings, test-data generation, TODO sweeps — anything high-volume and
-mechanically checkable) goes local-first, then Codex, then Claude's own
-Haiku tier, with premium Claude reserved for architecture, security-sensitive
-work, and final review. Local output never ships unreviewed. Full routing
-rule, discovery protocol, and per-backend call instructions are in
-[`SKILL.md`](./SKILL.md).
+mechanically checkable) is routed **cheapest meter first**: local, then
+OpenCode Zen (free), then Codex, then Claude's own Haiku tier, with premium
+Claude reserved for architecture, security-sensitive work, and final review.
+Local output never ships unreviewed. Full routing rule, discovery protocol,
+and per-backend call instructions are in [`SKILL.md`](./SKILL.md).
+
+Only the local backends keep data on your machine. Everything else is
+somebody's cloud — including Claude — so the skill picks on **cost** and tells
+you to keep genuinely sensitive material local rather than pretending a
+"never use the cloud" rule it would violate on every call.
 
 ## Why the "never unreviewed" rule is load-bearing
 

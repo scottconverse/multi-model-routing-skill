@@ -12,26 +12,29 @@ description: >-
   invoke it before reading any files or writing any code. Also use it
   whenever another model or agent system enters the picture: getting a second
   opinion from Codex/GPT, Gemini, or any non-Claude model, using Ollama, LM
-  Studio, or Antigravity, reaching a model your own harness does not offer,
-  offloading work to save Claude quota, or asking what model backends this
-  machine has.
+  Studio, OpenCode Zen, or Antigravity, reaching a model your own harness does
+  not offer, offloading work to save Claude quota, or asking what model
+  backends this machine has.
   Do not use for single-item analysis, architecture or design, security
   review, or prose writing.
 ---
 
 # Multi-Model Routing
 
-You have up to five model backends, on three separate meters. Use them
+You have up to six model backends, on four separate meters. Use them
 deliberately so the owner's Claude usage goes to work that actually needs
 Claude:
 
 1. **Ollama** (local) — free, private, no quota.
 2. **LM Studio** (local) — free, private, no quota.
-3. **Codex CLI** — OpenAI models, billed to the owner's ChatGPT account.
+3. **OpenCode Zen** (cloud) — **free, no API key, no account.** 61 models
+   advertised, 8+ of them free-tier. Costs nothing on any meter, which is why
+   it sits above Codex.
+4. **Codex CLI** — OpenAI models, billed to the owner's ChatGPT account.
    Also runs its agent loop on *local* models for free (`--oss`).
-4. **Antigravity** (`agy`) — Gemini 3.6/3.5 Flash, Gemini 3.1 Pro, Claude
+5. **Antigravity** (`agy`) — Gemini 3.6/3.5 Flash, Gemini 3.1 Pro, Claude
    Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B. A separate meter from Claude.
-5. **Claude subagents** (Agent tool) — billed to the owner's Claude usage.
+6. **Claude subagents** (Agent tool) — billed to the owner's Claude usage.
 
 **No single system reaches every model.** Antigravity is the only local route
 to Gemini and GPT-OSS, and a second, separately-billed path to Claude models.
@@ -55,19 +58,37 @@ blocker.
 
 ## Routing rule
 
-Two axes, cost and privacy:
+Two axes, cost and privacy. **Cost is the one that decides most calls.**
 
-- **Cost:** grunt work goes to **local models first**. If no local backend
-  fits, escalate to **Codex** — spending ChatGPT quota before Claude quota is
-  the owner's stated preference, not a law of nature; a Codex run still costs
-  them real quota (~10k+ tokens even for a trivial prompt), so don't loop it
-  carelessly. Bulk work that must stay on Claude goes to **Haiku**. Reserve
-  premium Claude (yourself, Opus-class subagents) for core reasoning,
-  architecture, security-sensitive work, and final review.
-- **Privacy:** local models keep everything on the machine. Codex ships the
-  content to OpenAI. Do not send sensitive or private code/data to a
-  third-party cloud backend without an explicit OK from the user — for that
-  material it's local models or Claude.
+- **Cost, cheapest meter first:**
+  1. **Local** (Ollama, LM Studio) — free and private. Grunt work starts here.
+  2. **OpenCode Zen** — free, no key. When no local model fits, this costs
+     nothing, so it comes before anything metered. Its free tier includes
+     models that outscore paid tiers further down this list.
+  3. **Codex** — spends ChatGPT quota, roughly 10k+ tokens even for a trivial
+     prompt. Real money; don't loop it carelessly.
+  4. **Antigravity** — a separate meter again, and the only route to Gemini
+     and GPT-OSS.
+  5. **Claude Haiku** for bulk work that must stay on Claude; **premium
+     Claude** (yourself, Opus-class subagents) reserved for core reasoning,
+     architecture, security-sensitive work, and final review.
+
+- **Privacy — state it honestly.** Only the local backends keep data on the
+  machine. **Everything else is somebody's cloud, including Claude itself**:
+  this conversation already goes to Anthropic, Codex goes to OpenAI,
+  Antigravity to Google, Zen to OpenCode and its upstream provider. A rule
+  phrased as "never send to a third-party cloud" would forbid the harness you
+  are running in, so don't pretend to follow one.
+
+  The real distinction is **account-bound versus anonymous**. Codex,
+  Antigravity and Claude run under the owner's own accounts, with terms and a
+  relationship attached. Zen's free tier is anonymous — no key, no account, no
+  data-handling commitment tied to him, and no controllable quota.
+
+  So: for genuinely sensitive material — secrets, credentials, private client
+  code, anything he has said not to share — use **local models only**, and ask
+  first if you are unsure. For ordinary work, all of these are already in play
+  every day; pick on cost.
 
 - **Open source first.** Where an open-weights model can do the job, prefer it
   — over a paid API model, and when choosing what to pull. This is the owner's
@@ -119,6 +140,7 @@ you're considering, and cache the result for the rest of the session.
 |---|---|---|
 | Ollama | `GET http://localhost:11434/api/tags` | JSON list of models + `capabilities` |
 | LM Studio | `GET http://localhost:1234/v1/models` | JSON list of models |
+| OpenCode Zen | `GET https://opencode.ai/zen/v1/models` | JSON list, no key sent |
 | Codex CLI | `codex doctor` | active model, auth mode, install health |
 | Antigravity | `agy models` | model IDs + display names |
 | Claude subagents | always available (Agent tool) | — |
@@ -192,6 +214,32 @@ before you spend model calls on it.
   this size. Want structured output? Either parse the one-word replies
   yourself, or route to a tier that handles schemas well — `agy
   --json-schema` or `codex --output-schema`.
+
+### OpenCode Zen — free cloud, same script
+
+The bundled script reaches it too; it is an OpenAI-dialect endpoint, so state
+the dialect rather than letting `auto` probe:
+
+```bash
+CALL_LOCAL_DIALECT=openai scripts/call_local.sh \
+  https://opencode.ai/zen deepseek-v4-flash-free "your prompt" 1024
+```
+
+- **No API key and no account.** `GET /v1/models` lists 61 models; the ones
+  ending `-free` cost nothing. *Verified 2026-08-09 from this machine:* a
+  one-word reply in **9.1 s**, `[receipt] in=88 out=21`, no credentials sent.
+- **State the dialect.** `auto` probes `/v1/messages` first and Zen serves that
+  path only for paid Claude models, answering 401/400 for free ones — a 400 is
+  usually a genuine bad request, so the fallback deliberately does not retry on
+  it. `CALL_LOCAL_DIALECT=openai` skips the wrong guess entirely.
+- **Use it when no local model fits and the work is not sensitive.** It is free,
+  so it beats spending ChatGPT or Claude quota. On the open benchmark data
+  `deepseek-v4-flash-free` scores **152.53**, above `gpt-5.4-mini` at 148.91 —
+  a paid tier further down this ladder. Check with `scripts/benchmarks.sh`
+  rather than trusting that number's freshness.
+- **Anonymous means unaccountable.** No key means no terms tied to the owner
+  and no controllable quota. Fine for ordinary work; for secrets, credentials
+  or private client code, stay local.
 
 ### Codex CLI
 

@@ -419,6 +419,30 @@ with tempfile.TemporaryDirectory() as td:
     check("pruning preserves local-notes.md content",
           notes.is_file() and "MY MACHINE FACTS" in notes.read_text(encoding="utf-8"))
 
+# ── every backend SKILL.md lists must appear on the human surfaces ───────────
+# Doc drift has been the single most repeated defect in this repo. The backend
+# roster is the thing most likely to drift next: it lives in SKILL.md's
+# numbered list, README.md's opening paragraph and MANUAL.md's cost table, and
+# adding a backend means touching all three. Read the roster from SKILL.md
+# rather than hand-keeping a list here, so a seventh backend is covered the
+# moment it lands.
+skill_md = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+roster_block = skill_md.split("model backends", 1)[-1].split("## ", 1)[0]
+backends = re.findall(r"^\d+\.\s+\*\*(.+?)\*\*", roster_block, re.M)
+# Match on the distinctive first word: "Claude subagents" is written many ways
+# across surfaces, "OpenCode Zen" and "LM Studio" are not.
+KEYS = {b: b.split(" (")[0].strip() for b in backends}
+missing = []
+for surface in ("README.md", "docs/MANUAL.md"):
+    text = (ROOT / surface).read_text(encoding="utf-8")
+    for full, key in KEYS.items():
+        if key.split()[0] == "Claude":
+            continue          # named a dozen ways; not a useful drift signal
+        if key not in text:
+            missing.append(f"{surface} is missing {key!r}")
+check(f"every backend in SKILL.md's roster ({len(KEYS)}) is named in README and MANUAL",
+      backends and not missing, f"roster={list(KEYS.values())} {missing}")
+
 # ── nothing may spawn git except through git_run() ───────────────────────────
 # The instance was three unguarded call sites that killed the suite on a
 # machine without git. The CLASS is "a guard exists in this file and the next

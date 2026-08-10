@@ -101,14 +101,32 @@ Two axes, and they point in opposite directions.
 |---|---|---|
 | 1 | Ollama (local) | free, no quota |
 | 2 | LM Studio (local) | free, no quota |
-| 3 | Codex CLI | your ChatGPT quota |
-| 4 | Claude Haiku | cheap Claude tier |
-| 5 | Premium Claude | reserve for reasoning, architecture, review |
+| 3 | OpenCode Zen | **free, no API key, no account** |
+| 4 | Codex CLI | your ChatGPT quota |
+| 5 | Antigravity (`agy`) | a separate meter again |
+| 6 | Claude Haiku | cheap Claude tier |
+| 7 | Premium Claude | reserve for reasoning, architecture, review |
 
-**Privacy — runs the other way.** Local models keep everything on the machine.
-Codex ships content to OpenAI. Sensitive or private material goes to local
-models or Claude, never to a third-party cloud backend without your explicit
-OK.
+OpenCode Zen sits above Codex because it costs nothing. It advertises 61
+models, the `-free` ones need no credentials, and one of them
+(`deepseek-v4-flash-free`, 152.53 on the open benchmark data) scores above
+`gpt-5.4-mini` at 148.91 — a paid tier further down this table. It is an
+OpenAI-dialect endpoint, so pass `CALL_LOCAL_DIALECT=openai`.
+
+**Privacy — say it straight.** Only tiers 1 and 2 keep data on your machine.
+**Everything else is somebody's cloud, Claude included** — this whole tool runs
+by sending your work to Anthropic. A rule saying "never use a third-party
+cloud" would forbid the thing you are already doing, so the skill doesn't claim
+one.
+
+The distinction that does matter is **account-bound versus anonymous**. Codex,
+Antigravity and Claude run under your own accounts, with terms attached. Zen's
+free tier is anonymous: no key, no account, no data-handling commitment tied to
+you, no controllable quota.
+
+So — secrets, credentials, private client code, anything you've said not to
+share: **local only**. Ordinary work: pick on cost, because it is all already
+leaving the machine anyway.
 
 **The rule that makes it safe:** local output is raw material. It never ships
 unreviewed — the agent (or a Claude subagent) reviews it before it counts.
