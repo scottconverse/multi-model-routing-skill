@@ -170,7 +170,12 @@ fi
 python3 - "$RESP_FILE" <<'PY'
 import json, sys
 
-with open(sys.argv[1]) as f:
+# encoding is explicit because Python follows the locale otherwise, and on a
+# Windows console that is cp1252. The two writers above already pin utf-8; this
+# reader did not, so any reply containing an em-dash, a smart quote or an accent
+# died with UnicodeDecodeError after a successful HTTP 200 -- intermittently,
+# depending on what the model happened to write. JSON is utf-8 by definition.
+with open(sys.argv[1], encoding="utf-8") as f:
     try:
         d = json.load(f)
     except json.JSONDecodeError as e:
@@ -214,6 +219,18 @@ if not text.strip():
           "raise max_tokens (reasoning models spend hidden tokens first)",
           file=sys.stderr)
     sys.exit(2)
+
+# The reply is the MODEL's text, not ours, so the ASCII-only rule that governs
+# our own messages cannot apply to it -- it routinely contains em dashes, smart
+# quotes and emoji. Windows stdout defaults to cp1252 (or cp437 under cmd.exe),
+# neither of which can encode those, so this print died with UnicodeEncodeError
+# AFTER a successful HTTP 200 and a printed receipt: the work was done, paid for
+# in wall clock, and thrown away at the last line. errors="replace" degrades a
+# stray glyph instead of losing the whole reply.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    pass  # not reconfigurable (very old Python, or a wrapped stream)
 
 print(text)
 PY
