@@ -10,6 +10,21 @@ Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
+## [0.3.8] - 2026-08-10
+
+### Fixed
+- **The backend-roster drift test crashed the shipped suite in every real
+  install.** Added two commits ago to stop the landing page from drifting, it
+  read `docs/index.html` unconditionally — but that file is deliberately
+  excluded from `PAYLOAD`, published only via Pages, and absent from every
+  install by design. Running the shipped `tests/test_install.py` from an
+  actual installed copy for the first time (building a downloadable package
+  surfaced it) died with `FileNotFoundError` instead of the roster check it
+  was meant to be. `README.md` and `docs/MANUAL.md` are in `PAYLOAD`, so they
+  are still checked everywhere; `docs/index.html` is now checked only where it
+  is actually present. Proven both ways: the repo still checks all 3 surfaces,
+  an install checks 2, and planting drift in an install's `README.md` still
+  fails the check that previously would have crashed before reaching it.
 ## [0.3.7] - 2026-08-09
 
 ### Fixed

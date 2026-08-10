@@ -446,17 +446,29 @@ for b in backends:
             key = key[: -len(suffix)]
     KEYS[b] = key
 SURFACES = ("README.md", "docs/MANUAL.md", "docs/index.html")
+# README.md and docs/MANUAL.md are in PAYLOAD, so every install has them.
+# docs/index.html is deliberately NOT -- it is excluded in NOT_SHIPPED,
+# published only via Pages. Reading it unconditionally crashes this test in
+# every installed copy: proven by running the shipped suite from a real
+# install, not just from the checkout, which is the one thing that would have
+# caught it before it shipped. Missing-in-a-real-install is expected and is
+# not drift; only check a surface that is actually present here.
 missing = []
+checked = []
 for surface in SURFACES:
-    text = (ROOT / surface).read_text(encoding="utf-8")
+    path = ROOT / surface
+    if not path.is_file():
+        continue
+    checked.append(surface)
+    text = path.read_text(encoding="utf-8")
     for full, key in KEYS.items():
         if key == "Claude":
             continue          # appears everywhere; carries no drift signal
         if key not in text:
             missing.append(f"{surface} is missing {key!r}")
 check(f"every backend in SKILL.md's roster ({len(KEYS)}) is named on all "
-      f"{len(SURFACES)} human surfaces", backends and not missing,
-      f"roster={sorted(KEYS.values())} {missing}")
+      f"{len(checked)} present human surfaces", backends and checked and not missing,
+      f"roster={sorted(KEYS.values())} checked={checked} {missing}")
 
 # ── nothing may spawn git except through git_run() ───────────────────────────
 # The instance was three unguarded call sites that killed the suite on a
