@@ -292,28 +292,41 @@ first, or the call fails at runtime.
 
 ## 6. Skills are portable across harnesses
 
-Antigravity keeps skills in `~/.gemini/config/skills/` — the same shape as
-Claude's `~/.claude/skills/`. This machine already has `workflowwright` in
-both.
+All three harnesses use the same one-directory-per-skill shape, just in
+different places:
 
-**This skill installs into Antigravity the same way** (done and verified on
-this machine 2026-08-08 — `SKILL.md` present, `local-notes.md` created from
-the template):
+| Harness | Skills directory |
+|---|---|
+| Claude Code / Cowork | `~/.claude/skills/` |
+| Codex | `~/.codex/skills/` (its own bundled skills sit under `.system/`) |
+| Antigravity | `~/.gemini/config/skills/` |
+
+Codex additionally reads `agents/openai.yaml` inside a skill, for its display
+name and whether it may self-invoke. A skill without one still loads there, but
+carries no metadata and will not fire unless the user names it explicitly.
+
+⚠️ **Never assume a skill is installed because it is installed somewhere.**
+Each harness keeps its own copy and they drift — check the directory before
+relying on it. This file used to assert that `workflowwright` was already
+present in two harnesses "on this machine". It was in none of them, and the
+claim shipped to every other machine as fact.
+
+`install.py` handles all three:
 
 ```bash
-git clone https://github.com/scottconverse/multi-model-routing-skill.git \
-  ~/.gemini/config/skills/multi-model-routing
-cd ~/.gemini/config/skills/multi-model-routing
-cp references/local-notes.example.md references/local-notes.md
+python3 install.py                 # auto-detect and install everywhere found
+python3 install.py --app codex     # or one at a time
 ```
 
 Install it in every harness you use. Routing advice only helps in the session
 that can read it — a skill that lives in one agent can't tell the others what
 they're allowed to route where.
 
-Antigravity also has its own plugins (`~/.gemini/config/plugins/`) — this
-machine carries `chrome-devtools-plugin`, `data-agent-kit-plugin`, and
-`modern-web-guidance-plugin`.
+Antigravity also has its own plugins, separate from skills, in
+`~/.gemini/config/plugins/`. Which plugins a machine carries — and whether that
+directory exists at all — varies per install, so list it rather than assuming:
+an earlier version of this file named three by hand, and none of them were
+present on the next machine it was read on.
 
 ---
 
