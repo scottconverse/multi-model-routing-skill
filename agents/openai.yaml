@@ -1,0 +1,12 @@
+# Codex reads agents/openai.yaml for a skill's display metadata and invocation
+# policy. Claude Code and Antigravity ignore this file, so it ships everywhere
+# rather than being generated per-harness -- one PAYLOAD, no special-casing, and
+# the prune guard cannot mistake it for a stale leftover.
+interface:
+  display_name: "Multi-Model Routing"
+  short_description: "Route batch and mechanical work to the cheapest available backend"
+  default_prompt: "Use $multi-model-routing to send this batch work to the cheapest capable backend (local first) instead of running all of it on the premium model."
+policy:
+  # SKILL.md instructs the agent to invoke this BEFORE reading files or writing
+  # code for batch work, which only happens if the harness may self-invoke it.
+  allow_implicit_invocation: true

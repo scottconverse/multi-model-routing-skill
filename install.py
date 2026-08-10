@@ -10,6 +10,7 @@ an existing local-notes.md (that file holds your hardware and account facts).
 Usage:
     python3 install.py                 # auto-detect and install everywhere found
     python3 install.py --app claude    # just Claude Code / Cowork
+    python3 install.py --app codex     # just Codex / ChatGPT
     python3 install.py --app antigravity
     python3 install.py --project .     # into ./.claude/skills for one project
     python3 install.py --list          # show what would happen, change nothing
@@ -31,6 +32,7 @@ PAYLOAD = [
     "README.md",
     "LICENSE",
     "install.py",                      # so an install can remove itself
+    "agents/openai.yaml",              # Codex metadata; harmless in the others
     "docs/MANUAL.md",                  # the human doc belongs WITH the install
     "scripts/call_local.sh",
     "scripts/benchmarks.sh",
@@ -88,8 +90,12 @@ def is_excluded(rel_path):
 # install IS the git checkout, so the SKILL.md guard alone does not catch it.
 VCS_MARKERS = (".git", ".hg", ".svn")
 
+# Codex keeps its bundled skills under ~/.codex/skills/.system/ and user skills
+# directly in ~/.codex/skills/, the same one-directory-per-skill shape the other
+# two use. It additionally reads agents/openai.yaml, which PAYLOAD now ships.
 TARGETS = {
     "claude": pathlib.Path.home() / ".claude" / "skills",
+    "codex": pathlib.Path.home() / ".codex" / "skills",
     "antigravity": pathlib.Path.home() / ".gemini" / "config" / "skills",
 }
 
@@ -243,8 +249,9 @@ def main():
     else:
         chosen = args.app or detect()
         if not chosen:
-            sys.exit("No supported harness found. Looked for ~/.claude and "
-                     "~/.gemini/config. Use --project DIR for a project install.")
+            sys.exit("No supported harness found. Looked for ~/.claude, ~/.codex "
+                     "and ~/.gemini/config. Use --project DIR for a project "
+                     "install.")
         roots = {n: TARGETS[n] for n in chosen}
 
     for name, root in roots.items():
