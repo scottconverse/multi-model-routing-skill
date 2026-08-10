@@ -10,6 +10,8 @@ Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
+## [0.3.6] - 2026-08-09
+
 ### Added
 - **OpenCode Zen is in the routing ladder**, above Codex, because it is free.
   No API key and no account: `GET https://opencode.ai/zen/v1/models` lists 61
