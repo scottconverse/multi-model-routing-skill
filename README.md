@@ -4,6 +4,8 @@
 [Manual](./docs/MANUAL.md) · [SKILL.md](./SKILL.md) ·
 [Changelog](./CHANGELOG.md)**
 
+**Version: v0.3.6**
+
 A [Claude Code](https://claude.com/claude-code) / Claude Cowork / Antigravity
 skill that routes batch and mechanical work across whatever model backends are
 actually available on the machine — the local LLM engine with the largest

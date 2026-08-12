@@ -1,5 +1,7 @@
 # multi-model-routing — Manual
 
+**Version: v0.3.6**
+
 A skill that teaches a coding agent to send bulk, mechanical work to the
 cheapest backend that can actually do it — the free LLMs already on your
 machine first, then Codex, then Claude's cheap tier, with premium Claude
