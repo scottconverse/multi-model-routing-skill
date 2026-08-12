@@ -9,7 +9,7 @@ description: >-
   count ("30 logs", "200 reviews") are the signal -- this is the required way
   to execute batch work, not an optional optimization, so invoke it before
   reading any files or writing any code. Also use it whenever another model
-  or agent system enters the picture: Ollama, LM Studio, OpenCode Zen,
+  or agent system enters the picture: a local model engine, OpenCode Zen,
   Antigravity, Codex/GPT, Gemini, or any non-Claude model -- reaching a model
   your own harness does not offer, offloading work to save Claude quota, or
   asking what model backends this machine has. Do not use for single-item
@@ -18,25 +18,25 @@ description: >-
 
 # Multi-Model Routing
 
-You have up to six model backends, on four separate meters. Use them
+You have up to five routing tiers, on four separate meters. Use them
 deliberately so the owner's Claude usage goes to work that actually needs
 Claude:
 
-1. **Ollama** (local) — free, private, no quota.
-2. **LM Studio** (local) — free, private, no quota.
-3. **OpenCode Zen** (cloud) — **free, no API key, no account.** 61 models
+1. **Local model engine** — free, private, no quota. Choose the engine with
+   the largest usable local model inventory; see the selection rule below.
+2. **OpenCode Zen** (cloud) — **free, no API key, no account.** 61 models
    advertised, 8+ of them free-tier. Costs nothing on any meter, which is why
    it sits above Codex.
-4. **Codex CLI** — OpenAI models, billed to the owner's ChatGPT account.
+3. **Codex CLI** — OpenAI models, billed to the owner's ChatGPT account.
    Also runs its agent loop on *local* models for free (`--oss`).
-5. **Antigravity** (`agy`) — reaches multiple Gemini tiers, Claude on a
+4. **Antigravity** (`agy`) — reaches multiple Gemini tiers, Claude on a
    separate meter, and free GPT-OSS 120B. `agy models` is live and
    authoritative; don't trust a remembered list, including this one — see
    `references/cross-agent.md` for current tiers and which job wants which.
-6. **Claude subagents** (Agent tool) — billed to the owner's Claude usage.
+5. **Claude subagents** (Agent tool) — billed to the owner's Claude usage.
 
-**No single system reaches every model.** Antigravity is the only local route
-to Gemini and GPT-OSS, and a second, separately-billed path to Claude models.
+**No single system reaches every model.** Antigravity is the only route to
+Gemini and GPT-OSS, and a second, separately-billed path to Claude models.
 Codex is the only route to the GPT-5.x fleet. Routing *across* systems is how
 you reach a model your own harness doesn't offer — read
 `references/cross-agent.md` before assuming a model is unavailable.
@@ -60,7 +60,8 @@ blocker.
 Two axes, cost and privacy. **Cost is the one that decides most calls.**
 
 - **Cost, cheapest meter first:**
-  1. **Local** (Ollama, LM Studio) — free and private. Grunt work starts here.
+  1. **Local** — free and private. Grunt work starts with the local engine
+     that exposes the largest usable model inventory.
   2. **OpenCode Zen** — free, no key. When no local model fits, this costs
      nothing, so it comes before anything metered. Its free tier includes
      models that outscore paid tiers further down this list.
@@ -72,7 +73,7 @@ Two axes, cost and privacy. **Cost is the one that decides most calls.**
      Claude** (yourself, Opus-class subagents) reserved for core reasoning,
      architecture, security-sensitive work, and final review.
 
-- **Privacy — state it honestly.** Only the local backends keep data on the
+- **Privacy — state it honestly.** Only local engines keep data on the
   machine. **Everything else is somebody's cloud, including Claude itself**:
   this conversation already goes to Anthropic, Codex goes to OpenAI,
   Antigravity to Google, Zen to OpenCode and its upstream provider. A rule
@@ -129,6 +130,22 @@ score:** the data is one curl away, so a number without a call behind it has no
 excuse. Details, other measures, and the attribution CC-BY requires are in
 `references/benchmarks.md`.
 
+## Choose the local engine by model inventory
+
+Do not assume or hard-code a particular local LLM engine. Discover the local
+engines available on the machine using their live CLI, API, or other native
+model-listing mechanism. Count the models that are reachable, fit the
+hardware, and can satisfy the current task; then use the engine with the
+largest usable local model inventory. After choosing the engine, select the
+best task-fit model from that engine. If it cannot provide a suitable model,
+fall back to the next-largest usable inventory.
+
+Treat the inventory as session state: verify the engine and model list before
+the first routed call, cache the result for the session, and do not rank
+engines by brand, remembered defaults, or a stale notes file. If two engines
+tie, prefer the one with the best task-fit model and the simplest healthy
+call path.
+
 ## Discover lazily, prove before claiming
 
 Do NOT run a discovery sweep just because this skill loaded. Probe a backend
@@ -137,8 +154,7 @@ you're considering, and cache the result for the rest of the session.
 
 | Backend | Probe | Healthy looks like |
 |---|---|---|
-| Ollama | `GET http://localhost:11434/api/tags` | JSON list of models + `capabilities` |
-| LM Studio | `GET http://localhost:1234/v1/models` | JSON list of models |
+| Each local engine | Its live model-list command or API | Reachable model list and capability metadata |
 | OpenCode Zen | `GET https://opencode.ai/zen/v1/models` | JSON list, no key sent |
 | Codex CLI | `codex doctor` | active model, auth mode, install health |
 | Antigravity | `agy models` | model IDs + display names |
@@ -154,9 +170,8 @@ reply in this session (`scripts/call_local.sh <base-url> <model> "Reply with
 exactly: OK" 512` for local backends). The probe and the smoke test are one
 step, not two. Report the resulting roster to the user as a single line.
 
-If a local server isn't responding but its CLI exists, you may start it
-(`ollama serve` in the background; `lms server start` — check local-notes for
-where `lms` lives). **Sandbox guard:** some sessions (e.g. a cloud-hosted
+If a local engine isn't responding but its CLI exists, you may start it using
+the engine's documented command. **Sandbox guard:** some sessions (e.g. a cloud-hosted
 Cowork or Claude Code environment) run in a container where `localhost` is
 not the user's actual machine. If you start a server and it reports an empty
 model list but the user says they have models installed, you almost
@@ -172,7 +187,7 @@ working with whatever IS available.
 
 ## How to call each backend
 
-### Local (Ollama / LM Studio) — use the bundled script
+### Local model engine — use the bundled script when compatible
 
 `scripts/call_local.sh <base-url> <model> <prompt> [max_tokens]` sends an
 Anthropic-format request to `<base-url>/v1/messages` and automatically falls
@@ -180,35 +195,29 @@ back to OpenAI-format `/v1/chat/completions` if that 404s (older builds).
 It prints the reply on stdout and a `[receipt]` token-usage line on stderr —
 keep that receipt; it backs any claim that the backend did work.
 
-**Read `references/local-backends.md`** for what these backends verifiably do:
-tool support, vision, embeddings, prompt caching, and the RAM rules. Two things
+**Read `references/local-backends.md`** for local endpoint requirements,
+selection guidance, model capability checks, and RAM rules. Two things
 worth knowing up front — **tool support is a property of the model, not the
 server** (a coder-tuned model may have no tool training at all), and
 **embeddings are nearly free** and excellent for deduping or clustering a batch
 before you spend model calls on it.
 
-- Ollama base URL: `http://localhost:11434`. List installed models:
-  `GET /api/tags` or `ollama list`. Pull new: `ollama pull <model>` (see
-  model choice rules below first).
-- **The endpoint does not have to be this machine.** `call_local.sh` takes a
-  base URL, so any Ollama-compatible endpoint works — a beefier box on the LAN
-  can serve a model that won't fit in local RAM. Ask the user for the URL; do
-  not scan the network for one. ⚠️ A remote endpoint is **not private**: the
-  privacy guarantee comes from `localhost`, not from the word "local." Treat a
-  non-localhost URL exactly like a third-party cloud backend and get an
-  explicit OK before sending anything sensitive.
-- LM Studio base URL: `http://localhost:1234`. Loaded models:
-  `GET /v1/models`; everything downloaded: `lms ls`; load:
-  `lms load <model-key> -c <context>`; download: `lms get <search>`.
+- The endpoint does not have to be this machine. `call_local.sh` takes a base
+  URL, so use the selected engine's compatible endpoint and model identifier.
+  Ask the user for a remote URL; do not scan the network for one. ⚠️ A remote
+  endpoint is **not private**: the privacy guarantee comes from `localhost`,
+  not from the word "local." Treat a non-localhost URL exactly like a
+  third-party cloud backend and get an explicit OK before sending anything
+  sensitive.
 - Reasoning-style local models spend hidden "thinking" tokens before visible
   output — a small `max_tokens` can return empty text. Always give at least a
   few hundred; the script defaults to 1024.
-- **Concurrency: keep local calls to 1–2 at a time.** Local servers serialize
+- **Concurrency: keep local calls to 1–2 at a time.** Local engines serialize
   or thrash under parallel load, especially when requests force model swaps.
 - **Ask a small local model for constrained plain text, NOT JSON schema.**
   Measured on the same model and prompt: a one-word answer scored **12/12** on
-  a real classification batch, while Ollama's native `format` schema got **1 of
-  3 wrong**, and adding a free-text string field to the schema made it
+  a real classification batch, while a native schema mode got **1 of 3 wrong**,
+  and adding a free-text string field to the schema made it
   degenerate into a 600-token repeat loop. Schema-forcing costs accuracy at
   this size. Want structured output? Either parse the one-word replies
   yourself, or route to a tier that handles schemas well — `agy
@@ -265,8 +274,10 @@ discovery rules, and the rest of the CLI surface.
   a review prompt through `exec`.
 - **`--output-schema <FILE>`** gives schema-validated JSON instead of prose to
   parse. Use it for batch work.
-- **`--oss --local-provider ollama|lmstudio`** runs Codex's own agent loop
-  against a local model — Codex's tooling and sandboxing at zero API cost.
+- **`--oss --local-provider <ENGINE>`** runs Codex's own agent loop against a
+  local model — Codex's tooling and sandboxing at zero API cost. Query the
+  installed CLI's live help for supported provider values, then pass the
+  engine selected by the model-inventory rule above.
 - **Keep `-s read-only` for questions and reviews.** The default is
   workspace-write with approval=never — it WILL edit files without asking.
 - Multi-turn: `codex exec resume --last "follow-up"`.
@@ -336,16 +347,19 @@ dispatch. Review its split before acting on it, same as any local output.
 The one thing that does NOT work is *replacing your own inference backend* with
 a local server — running Claude Code itself on local weights via
 `ANTHROPIC_BASE_URL`, rather than calling out to them. That path is
-protocol-compatible (local servers accept every field Claude Code sends) but
+protocol-compatible (compatible local servers accept every field Claude Code sends) but
 impractical: a large system prompt costs ~42 s of prompt processing per call on
 a small model, and Claude Code makes several calls per turn. Two attempts never
 finished in 5 minutes. Calling local models = yes. Being one = no. Full
 findings in `references/cross-agent.md`.
 
-## Choose the BEST local model, not just the loaded one
+## Choose the best local model from the selected engine
 
-1. **Inventory first:** prefer an installed model that fits — zero download.
-2. **If nothing installed fits** (vision, stronger coding, longer context):
+1. **Compare engines first:** choose the local engine with the largest usable
+   model inventory, as described above.
+2. **Inventory that engine:** prefer an installed model that fits — zero
+   download.
+3. **If nothing installed fits** (vision, stronger coding, longer context):
    pick the best current open model for the job. **Check Artificial Analysis
    rather than reasoning from memory** — it scores open-weights models on the
    same indices as proprietary ones, so a local model and the cloud model you'd
@@ -354,12 +368,12 @@ findings in `references/cross-agent.md`.
    `sort=coding-high-to-low` / `min_coding_index=`); the web page is
    JavaScript-rendered and a plain fetch returns no numbers. Method, caveats
    and rules in `references/benchmarks.md`.
-3. **Respect the hardware:** check available RAM/VRAM before choosing a size.
+4. **Respect the hardware:** check available RAM/VRAM before choosing a size.
    A model that barely fits will thrash; prefer a quantization with headroom.
-4. **Confirm before big downloads:** a multi-GB pull writes to the user's
+5. **Confirm before big downloads:** a multi-GB pull writes to the user's
    disk — say what, from where, how big, and get an OK. Small pulls on an
    already-approved plan can proceed.
-5. **Smoke-test after loading** before routing real work at it.
+6. **Smoke-test after loading** before routing real work at it.
 
 Rough fit guide (verify against current reality): general/summarization →
 mid-size instruct model; code grunt work → a coder-tuned variant; vision → a

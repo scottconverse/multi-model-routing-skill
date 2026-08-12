@@ -25,18 +25,14 @@ a CLI path, a hardware limit), offer to record it there with today's date.
 
 ## Backend roster
 
-- *(no entries yet — record which of Ollama / LM Studio / Codex are installed
-  here, whether their servers are running, and the date you checked)*
+- *(no entries yet — record each local engine's name, native discovery
+  command/API, whether it is running, and the date you checked)*
 
-## Ollama
+## Local model inventories
 
-- *(no entries yet — binary path, and which models are installed)*
-
-## LM Studio
-
-- *(no entries yet — the `lms` CLI is commonly at `~/.lmstudio/bin/lms`
-  (`lms.exe` on Windows) and is often NOT on PATH, so record the real path.
-  Note which models are downloaded and which actually fit in RAM)*
+- *(no entries yet — for each engine, record the reachable model count, model
+  identifiers, capabilities, and which models fit in RAM/VRAM. The engine with
+  the largest usable inventory should be preferred for local work.)*
 
 ## Codex / OpenAI
 

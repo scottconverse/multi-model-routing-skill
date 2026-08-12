@@ -15,9 +15,9 @@ you reach a model your own harness doesn't offer.
 | **Claude Code / Cowork** | `claude` | Claude tiers (Opus/Sonnet/Haiku) + any Anthropic-compatible endpoint |
 | **Codex** | `codex` | 7 OpenAI models + **local models via `--oss`** |
 | **Antigravity** | `agy` | **Gemini 3.6/3.5 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B** |
-| **Ollama / LM Studio** | HTTP | whatever is installed locally |
+| **Selected local engine** | HTTP or native CLI | engine with the largest usable local model inventory |
 
-Antigravity is the only local route to **Gemini** and to **GPT-OSS 120B**, and
+Antigravity is the only route to **Gemini** and to **GPT-OSS 120B**, and
 it's a second, separately-billed path to Claude models. If Claude quota is
 tight, `agy --model claude-opus-4-6-thinking` is a different meter.
 
@@ -126,14 +126,16 @@ text|json|stream-json` · `--add-dir` · `--continue` / `--conversation <id>` ·
 ## 3. Codex driving local models — free, with one hard constraint
 
 ```bash
-codex exec --oss --local-provider ollama -m gemma4:e4b -s read-only \
+codex exec --oss --local-provider <ENGINE> -m <MODEL> -s read-only \
   --skip-git-repo-check --ephemeral "task"
 ```
 
 *Verified: returned `CODEX-OSS-OK`, 9,479 tokens, 2 m 11 s, **zero API cost**.*
 
 This gives you Codex's agent loop, tooling and sandboxing running on free local
-weights. `--local-provider` accepts `ollama` or `lmstudio`.
+weights. Query the installed CLI's live help for accepted
+`--local-provider` values and pass the engine selected by the local inventory
+rule.
 
 **The constraint: the local model MUST support thinking.**
 
@@ -142,12 +144,13 @@ ERROR: "qwen2.5:7b" does not support thinking
 ```
 
 `qwen2.5:7b` fails. `gemma4:e4b` works. Check capabilities before routing —
-`GET /api/tags` on Ollama lists a `capabilities` array per model; look for
-`thinking`.
+Use the selected engine's live model metadata to verify the required
+capabilities, including `thinking` when the agent loop requires it.
 
 **Two harmless warnings you can ignore:**
 - `failed to refresh available models: missing field 'models'` — Codex expects
-  `{"models":…}`; Ollama returns `{"data":…}`. Cosmetic.
+  `{"models":…}` while another compatible endpoint returns `{"data":…}`.
+  Cosmetic.
 - `Model metadata for <x> not found. Defaulting to fallback metadata` — expected
   for local models.
 
@@ -166,9 +169,9 @@ Everything below concerns only the second row. Documented so nobody re-derives
 it — and so nobody reads it as "Claude can't use local models," which is false.
 
 ```bash
-ANTHROPIC_BASE_URL=http://localhost:11434 \
+ANTHROPIC_BASE_URL=http://localhost:PORT \
 ANTHROPIC_AUTH_TOKEN=local-dummy \
-ANTHROPIC_MODEL=gemma4:e4b \
+ANTHROPIC_MODEL=<MODEL> \
 claude -p "..."
 ```
 
@@ -177,8 +180,8 @@ What testing established on 2026-08-08:
 - **The protocol is fine.** Pointed at a logging mock, `claude -p` completed
   normally. It sends `POST /v1/messages?beta=true` with `system`, `metadata`,
   `thinking`, `context_management`, `output_config`, and `stream`.
-- **Ollama accepts every one of those fields** — all returned HTTP 200 when
-  tested individually.
+- **The tested compatible local endpoint accepted every one of those fields** —
+  all returned HTTP 200 when tested individually.
 - **But it never completes.** Two runs, `qwen2.5:7b` and `gemma4:e4b`, killed
   at 4 and 5 minutes with no output.
 - **Cause: prompt-processing time.** A ~10k-token system prompt costs **41.8 s

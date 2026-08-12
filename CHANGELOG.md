@@ -10,6 +10,13 @@ Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
+### Changed
+- **Local engine selection is now provider-neutral.** The skill discovers the
+  local engines available on the machine, counts their reachable and usable
+  model inventories, and chooses the engine with the largest roster before
+  selecting a task-fit model. It no longer assumes a particular local LLM
+  engine.
+
 ## [0.3.10] - 2026-08-10
 
 Extends live model discovery to Codex and Antigravity, matching the pattern

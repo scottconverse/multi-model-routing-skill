@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>multi-model-routing — stop spending premium AI on grunt work</title>
-<meta name="description" content="A Claude Code / Cowork skill that routes batch and mechanical work to the free LLMs already running on your machine (Ollama, LM Studio), then free cloud models (OpenCode Zen), then Codex, then Claude — cheapest meter first. Local output never ships unreviewed.">
+<meta name="description" content="A Claude Code / Cowork skill that routes batch and mechanical work to the local model engine with the largest usable inventory, then free cloud models (OpenCode Zen), then Codex, then Claude — cheapest meter first. Local output never ships unreviewed.">
 <link rel="canonical" href="https://scottconverse.github.io/multi-model-routing-skill/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="multi-model-routing">
 <meta property="og:url" content="https://scottconverse.github.io/multi-model-routing-skill/">
 <meta property="og:title" content="multi-model-routing — stop spending premium AI on grunt work">
-<meta property="og:description" content="Routes batch and mechanical work to the free LLMs already on your machine (Ollama, LM Studio), then free cloud (OpenCode Zen), then Codex, then Claude — cheapest meter first. Local output never ships unreviewed.">
+<meta property="og:description" content="Routes batch and mechanical work to the local model engine with the largest usable inventory, then free cloud (OpenCode Zen), then Codex, then Claude — cheapest meter first. Local output never ships unreviewed.">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="multi-model-routing — stop spending premium AI on grunt work">
-<meta name="twitter:description" content="Routes batch and mechanical work to the free LLMs already on your machine (Ollama, LM Studio), then free cloud (OpenCode Zen), then Codex, then Claude — cheapest meter first. Local output never ships unreviewed.">
+<meta name="twitter:description" content="Routes batch and mechanical work to the local model engine with the largest usable inventory, then free cloud (OpenCode Zen), then Codex, then Claude — cheapest meter first. Local output never ships unreviewed.">
 <style>
   :root {
     --bg: #0f1117; --panel: #171a23; --panel2: #1d2130;
@@ -101,7 +101,7 @@
 <header class="wrap">
   <div class="badge">v0.3.5 · MIT · 5 backends · 3 meters · open benchmark data · every path live-tested</div>
   <h1>You're paying for AI by the token.<br><span class="free">Your PC already has some for free.</span></h1>
-  <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the local models already installed on your machine — then Codex, Antigravity, and Claude — across three separate meters, in cost and privacy order.</p>
+  <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the <strong>Local model engine</strong> with the largest usable model inventory — then Codex, Antigravity, and Claude — across three separate meters, in cost and privacy order.</p>
   <div class="cta">
     <a class="btn btn-primary" href="https://github.com/scottconverse/multi-model-routing-skill">View on GitHub</a>
     <a class="btn btn-ghost" href="./MANUAL.md">Read the manual</a>
@@ -111,7 +111,7 @@
 <section class="wrap">
   <h2>The problem, in plain English</h2>
   <p>Ask a coding agent to summarize 200 log files and it will happily do all 200 itself, at premium rates, using a model built for architecture and security review. The work is mechanical — read a file, write two sentences — but every one of those calls bills you like it was hard.</p>
-  <p>Meanwhile there's a good chance you already have <strong>Ollama or LM Studio installed</strong>, holding models that run free, offline, and unmetered, doing nothing.</p>
+  <p>Meanwhile there's a good chance you already have a <strong>local model engine installed</strong>, holding models that run free, offline, and unmetered, doing nothing.</p>
   <p>This skill closes that gap. It teaches the agent to recognize bulk work and route it down to the cheapest backend that can actually do it — with one hard rule attached: <strong>local output is raw material, never a finished answer.</strong> Something better always reviews it before it counts.</p>
 </section>
 
@@ -129,7 +129,7 @@
 
       <rect x="12" y="45" width="128" height="86" rx="9" fill="#171a23" stroke="#4ecf8a" stroke-width="1.5"/>
       <text x="76" y="70" text-anchor="middle" fill="#4ecf8a" font-size="14" font-weight="600" font-family="system-ui">Local</text>
-      <text x="76" y="89" text-anchor="middle" fill="#8b90a0" font-size="11" font-family="system-ui">Ollama · LM Studio</text>
+      <text x="76" y="89" text-anchor="middle" fill="#8b90a0" font-size="11" font-family="system-ui">largest usable roster</text>
       <text x="76" y="108" text-anchor="middle" fill="#d7dae2" font-size="11.5" font-family="ui-monospace,Consolas,monospace">free · private</text>
 
       <rect x="154" y="45" width="128" height="86" rx="9" fill="#171a23" stroke="#4ecf8a" stroke-width="1.5"/>
@@ -206,12 +206,12 @@
       <tr><td>Claude Code / Cowork</td><td class="num">claude</td><td>Claude tiers, any Anthropic-compatible endpoint</td></tr>
       <tr><td>Codex</td><td class="num">codex</td><td>the GPT-5.x fleet — <strong>plus local models, free</strong></td></tr>
       <tr><td>Antigravity</td><td class="num">agy</td><td><strong>Gemini, GPT-OSS 120B</strong>, Claude 4.6 on a separate meter</td></tr>
-      <tr><td>Ollama / LM Studio</td><td class="num">HTTP</td><td>whatever you have installed</td></tr>
+      <tr><td>Selected local engine</td><td class="num">HTTP / CLI</td><td>largest usable local model roster</td></tr>
       <tr><td>OpenCode Zen</td><td class="num">HTTP</td><td><strong>free models, no API key and no account</strong></td></tr>
     </tbody>
   </table>
   </div>
-  <p style="margin-top:18px"><strong>Two routes worth knowing.</strong> <code>codex exec --oss --local-provider ollama</code> runs Codex's full agent loop — tooling, sandboxing and all — on free local weights, at zero API cost. And <code>agy --json-schema</code> returns schema-validated JSON with a token receipt in about two seconds, which makes it the best structured-batch surface of the lot.</p>
+  <p style="margin-top:18px"><strong>Two routes worth knowing.</strong> <code>codex exec --oss --local-provider &lt;ENGINE&gt;</code> runs Codex's full agent loop — tooling, sandboxing and all — on free local weights, at zero API cost. Choose <code>&lt;ENGINE&gt;</code> from live CLI help after comparing local model inventories. And <code>agy --json-schema</code> returns schema-validated JSON with a token receipt in about two seconds, which makes it the best structured-batch surface of the lot.</p>
 
   <h3 style="margin-top:28px">They can drive each other, too</h3>
   <p>MCP is the common bus. <code>codex mcp-server</code> turns Codex into an MCP server any client can call as a native tool; <code>codex mcp add</code> points Codex at someone else's tools. Both directions were wired and verified on real hardware:</p>
@@ -255,14 +255,14 @@ cp references/local-notes.example.md references/local-notes.md</code></pre>
   <p class="muted">It scores open-weights models on the same scale as proprietary ones — the comparison a routing skill actually needs. ⚠️ But <strong>open weights means downloadable, not runnable</strong>: the top open model is 2.8&nbsp;trillion parameters and needs 8× H200. Check size against free RAM before treating a high score as a local option, and remember a big open model reached over someone else's API is a licensing win, not a privacy one. Benchmarks rank; they don't decide — a measured result on your own machine still wins.</p>
 
   <h3>Large prompts don't go through argv</h3>
-  <pre><code>cat big.log | scripts/call_local.sh http://localhost:11434 qwen2.5:7b - 2048</code></pre>
+  <pre><code>cat big.log | scripts/call_local.sh &lt;BASE_URL&gt; &lt;MODEL&gt; - 2048</code></pre>
   <p class="muted">The prompt can be a literal argument, <code>-</code> for stdin, or <code>file:PATH</code>. Use the latter two for real inputs — a literal prompt has to fit the OS argument limit, and a batch input won't. It fails loudly rather than truncating, but it won't run. The sigil is <code>file:</code> and not <code>@</code> because Git Bash on Windows expands a leading <code>@</code> as a response file, silently splitting the file's contents into separate arguments.</p>
 
   <h3>"Local" doesn't have to mean this machine</h3>
-  <p class="muted">The bundled script takes a base URL and has no localhost assumption, so any Ollama-compatible endpoint works — including a bigger box on the LAN serving a model that won't fit in your RAM. That host needs <code>OLLAMA_HOST=0.0.0.0</code>, since Ollama binds <code>127.0.0.1</code> by default. <strong>A remote endpoint is not private</strong> — the guarantee comes from <code>localhost</code>, not from the word "local."</p>
+  <p class="muted">The bundled script takes a base URL and has no localhost assumption, so any compatible local-engine endpoint works — including a bigger box on the LAN serving a model that won't fit in your RAM. Follow that engine's documented bind and firewall settings. <strong>A remote endpoint is not private</strong> — the guarantee comes from <code>localhost</code>, not from the word "local."</p>
 
   <h3>You need less than you'd think</h3>
-  <p class="muted">Nothing here requires all four backends. It works with whatever subset you actually have, and a missing one is a one-line note, never a blocker. The bundled script needs only <code>bash</code>, <code>curl</code> and <code>python3</code> — standard library, no <code>pip install</code>.</p>
+  <p class="muted">Nothing here requires every backend or a particular local engine. It works with whatever subset you actually have, and a missing one is a one-line note, never a blocker. The bundled script needs only <code>bash</code>, <code>curl</code> and <code>python3</code> — standard library, no <code>pip install</code>.</p>
 </section>
 
 <section class="wrap">

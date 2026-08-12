@@ -16,7 +16,7 @@ beyond one optional notes file.
 
 **It isn't** a model router in the API sense. It doesn't proxy your traffic,
 sit in front of an endpoint, or rewrite requests. It's a policy your agent
-follows, plus a helper for talking to local servers.
+follows, plus a helper for talking to compatible local model endpoints.
 
 **It isn't a privacy boundary either.** See [Honest limits](#10-honest-limits).
 
@@ -86,8 +86,8 @@ enable, no restart beyond starting a new session.
 git-ignored, so updates never touch it and never conflict with it.
 
 **Requirements:** `bash`, `curl`, and `python3` (standard library only — no
-`pip install`). You do **not** need all four backends; it works with whatever
-subset you have.
+`pip install`). You do **not** need every backend; it works with whatever local
+engine and cloud services you have.
 
 ---
 
@@ -99,13 +99,12 @@ Two axes, and they point in opposite directions.
 
 | Tier | Backend | Cost |
 |---|---|---|
-| 1 | Ollama (local) | free, no quota |
-| 2 | LM Studio (local) | free, no quota |
-| 3 | OpenCode Zen | **free, no API key, no account** |
-| 4 | Codex CLI | your ChatGPT quota |
-| 5 | Antigravity (`agy`) | a separate meter again |
-| 6 | Claude Haiku | cheap Claude tier |
-| 7 | Premium Claude | reserve for reasoning, architecture, review |
+| 1 | Local model engine with the largest usable model inventory | free, no quota |
+| 2 | OpenCode Zen | **free, no API key, no account** |
+| 3 | Codex CLI | your ChatGPT quota |
+| 4 | Antigravity (`agy`) | a separate meter again |
+| 5 | Claude Haiku | cheap Claude tier |
+| 6 | Premium Claude | reserve for reasoning, architecture, review |
 
 OpenCode Zen sits above Codex because it costs nothing. It advertises 61
 models, the `-free` ones need no credentials, and one of them
@@ -113,7 +112,7 @@ models, the `-free` ones need no credentials, and one of them
 `gpt-5.4-mini` at 148.91 — a paid tier further down this table. It is an
 OpenAI-dialect endpoint, so pass `CALL_LOCAL_DIALECT=openai`.
 
-**Privacy — say it straight.** Only tiers 1 and 2 keep data on your machine.
+**Privacy — say it straight.** Only tier 1 keeps data on your machine.
 **Everything else is somebody's cloud, Claude included** — this whole tool runs
 by sending your work to Anthropic. A rule saying "never use a third-party
 cloud" would forbid the thing you are already doing, so the skill doesn't claim
@@ -146,33 +145,25 @@ backend only counts as available after it returns a one-word smoke reply, so
 
 | Backend | Probe | Healthy looks like |
 |---|---|---|
-| Ollama | `GET http://localhost:11434/api/tags` | models + `capabilities` |
-| LM Studio | `GET http://localhost:1234/v1/models` | JSON list of models |
+| Each local engine | Its live model-list command or API | reachable models + capabilities |
 | Codex CLI | `codex doctor` | active model, auth, install health |
 | Antigravity | `agy models` | model IDs + display names |
 | Claude subagents | always available | — |
 
 `agy` is usually **not on PATH** — on Windows, `%LOCALAPPDATA%\agy\bin\agy.exe`.
 
-### Ollama
+### Local engine selection
 
-Base URL `http://localhost:11434`. List installed models with `ollama list`.
-Pull new ones with `ollama pull <model>` — but the skill will confirm with you
-before any multi-gigabyte download.
+Do not assume or hard-code a particular local LLM engine. Discover each
+engine's reachable model inventory using its live CLI, API, or native model
+browser. Count models that fit the hardware and can satisfy the current task,
+then select the engine with the largest usable inventory. Choose the best
+task-fit model from that engine; if it cannot provide a suitable model, fall
+back to the next-largest usable inventory.
 
-### LM Studio
-
-Base URL `http://localhost:1234`. The server isn't always running; start it
-with `lms server start`. The CLI often isn't on `PATH` — it commonly lives at
-`~/.lmstudio/bin/lms` (`lms.exe` on Windows). Record the real path in your
-notes file so the agent doesn't have to hunt for it.
-
-Useful commands: `lms ls` (everything downloaded), `lms ps` (currently
-loaded), `lms load <key> -c <context>`, `lms get <search>`.
-
-> LM Studio JIT-loads: `lms ps` can report nothing loaded while the server
-> still answers requests fine. It loads the model on the first call, which is
-> why that call is slow.
+Treat a model as available only after the engine is healthy and the model has
+passed a one-word smoke test in this session. Cache the result for the session,
+and use the engine's own documented command or API to load a model when needed.
 
 ### Codex CLI
 
@@ -239,14 +230,15 @@ Claude Code makes several calls per turn. Tested twice; never completed in
 ### Codex running on your local models (free)
 
 ```bash
-codex exec --oss --local-provider ollama -m gemma4:e4b -s read-only \
+codex exec --oss --local-provider <ENGINE> -m <MODEL> -s read-only \
   --skip-git-repo-check "task"
 ```
 
 Codex's agent loop, tooling and sandbox on free local weights — verified at
-zero API cost. **The local model must support thinking**: `qwen2.5:7b` fails
-with `"does not support thinking"`, `gemma4:e4b` works. Check the
-`capabilities` array in Ollama's `/api/tags` before routing here.
+zero API cost. Query the installed CLI's live help for supported provider
+values and pass the engine selected by the model-inventory rule. Verify that
+the selected model supports the capabilities required by this path in the
+engine's live model metadata before routing here.
 
 ### Agents driving each other (MCP)
 
@@ -375,17 +367,17 @@ rather than guessed at.
 
 ### Concurrency
 
-**Keep local calls to 1–2 at a time.** Local servers serialize or thrash under
+**Keep local calls to 1–2 at a time.** Local engines serialize or thrash under
 parallel load, especially when requests force a model swap. Parallelism here
 makes things slower, not faster.
 
 ### "Local" means the endpoint, not the machine
 
 `call_local.sh` takes a base URL and has no localhost assumption, so **any**
-Ollama-compatible endpoint works — including one on another computer:
+compatible local-engine endpoint works — including one on another computer:
 
 ```bash
-call_local.sh http://192.168.1.50:11434 gemma-4-26b "..." 2048
+call_local.sh http://192.168.1.50:PORT MODEL "..." 2048
 ```
 
 That's the escape hatch when a model won't fit in your RAM: a box with more
@@ -393,10 +385,8 @@ memory can serve it over the LAN, no code change.
 
 Two things to know before relying on it:
 
-- **The serving machine needs configuring.** Ollama binds `127.0.0.1` by
-  default and will refuse LAN connections until it's started with
-  `OLLAMA_HOST=0.0.0.0` (and the firewall allows it). One config change on that
-  box, not zero.
+- **The serving machine needs configuring.** Follow the selected engine's
+  documented bind and firewall settings before using a non-localhost endpoint.
 - ⚠️ **A remote endpoint is not private.** The privacy property comes from
   `localhost`, not from the word "local." Once the URL points elsewhere, your
   prompt leaves this machine and the same consent rule applies as for any cloud
@@ -407,8 +397,8 @@ Two things to know before relying on it:
 ## 6. `local-notes.md` — your machine's file
 
 `references/local-notes.md` is the only place machine- and account-specific
-facts live: which Codex model has quota, where `lms` actually is, how much RAM
-you have, which local models are installed. `SKILL.md` stays generic so the
+facts live: which Codex model has quota, how much RAM you have, which local
+engines are installed, and which models each exposes. `SKILL.md` stays generic so the
 skill works anywhere; your notes hold everything that's true only of your
 setup.
 
@@ -443,15 +433,18 @@ prose writing. The skill deliberately declines to trigger on those.
 
 ## 8. Choosing a local model
 
-1. **Inventory first.** Prefer an installed model that fits — zero download.
-2. **If nothing fits** (vision, stronger coding, longer context), pick the best
+1. **Inventory engines first.** Choose the engine with the largest usable
+   local model inventory.
+2. **Inventory that engine.** Prefer an installed model that fits — zero
+   download.
+3. **If nothing fits** (vision, stronger coding, longer context), pick the best
    current open model for the job. Research it rather than trusting stale
    knowledge; this landscape moves monthly.
-3. **Respect the hardware.** Check free RAM/VRAM before choosing a size. A
+4. **Respect the hardware.** Check free RAM/VRAM before choosing a size. A
    model that barely fits will thrash — prefer a quantization with headroom.
    With ~10 GB free, a 9 GB model is a bad idea and a 4.7 GB one is fine.
-4. **Confirm before big downloads.** A multi-gigabyte pull needs your OK.
-5. **Smoke-test after loading**, before routing real work at it.
+5. **Confirm before big downloads.** A multi-gigabyte pull needs your OK.
+6. **Smoke-test after loading**, before routing real work at it.
 
 Rough fit: general work → mid-size instruct model; code → a coder-tuned
 variant; images → a VL model; long sweeps → whatever holds the largest stable
@@ -576,8 +569,9 @@ prompt, so it shouldn't be looped carelessly.
 
 ## 12. Troubleshooting
 
-**"no server reachable at ..."** — nothing is listening. Start Ollama, or run
-`lms server start`. Fails in about 5 seconds rather than hanging.
+**"no server reachable at ..."** — nothing is listening. Start the selected
+engine using its documented command. Fails in about 5 seconds rather than
+hanging.
 
 **"timed out after Ns"** — the server accepted the connection then stalled, or
 the generation is genuinely long. Raise `CALL_LOCAL_TIMEOUT`.
@@ -608,7 +602,7 @@ started a new session since installing.
 
 ## 13. FAQ
 
-**Do I need all four backends?**
+**Do I need every backend?**
 No. It works with whatever you have. A missing backend is a one-line note
 ("Codex isn't installed — install it and I'll use it next time"), never a
 blocker.
@@ -642,7 +636,7 @@ material in the repo and readable on their own:
 |---|---|
 | [`references/codex.md`](../references/codex.md) | Codex model selection **by capability**, the full CLI surface, and two cost traps that reverse the obvious choice |
 | [`references/cross-agent.md`](../references/cross-agent.md) | How Claude Code, Codex and Antigravity find each other; every MCP bridge with its verification |
-| [`references/local-backends.md`](../references/local-backends.md) | What Ollama and LM Studio verifiably do — tools, vision, embeddings, prompt caching, RAM limits |
+| [`references/local-backends.md`](../references/local-backends.md) | Local endpoint requirements, model inventory, capability checks, and RAM limits |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | The evidence rule, argued from the defects this repo shipped by breaking it |
 | [`DISCUSSIONS_SEED.md`](./DISCUSSIONS_SEED.md) | Six open questions from building this |
 

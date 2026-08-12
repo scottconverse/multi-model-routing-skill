@@ -31,7 +31,7 @@ work in practice" saves the next person an afternoon — see the
 python3 tests/test_call_local.py
 ```
 
-No real Ollama or LM Studio needed — it spins up mock servers on 127.0.0.1.
+No real local engine needed — it spins up mock servers on 127.0.0.1.
 It should pass on Linux, macOS and Windows. On Windows it needs Git Bash;
 without a POSIX bash it prints `SKIP:` and exits 0 rather than failing.
 

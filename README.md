@@ -6,10 +6,11 @@
 
 A [Claude Code](https://claude.com/claude-code) / Claude Cowork / Antigravity
 skill that routes batch and mechanical work across whatever model backends are
-actually available on the machine — local LLMs (Ollama, LM Studio), OpenCode
-Zen (free cloud models, no API key), the Codex CLI (OpenAI models), Antigravity
-(`agy`: Gemini, GPT-OSS 120B, Claude 4.6), and Claude itself — instead of
-defaulting everything to premium Claude usage.
+actually available on the machine — the local LLM engine with the largest
+usable model inventory, OpenCode Zen (free cloud models, no API key), the
+Codex CLI (OpenAI models), Antigravity (`agy`: Gemini, GPT-OSS 120B, Claude
+4.6), and Claude itself — instead of defaulting everything to premium Claude
+usage.
 
 Grunt work (log triage, bulk tagging, format conversion, first-draft
 docstrings, test-data generation, TODO sweeps — anything high-volume and
@@ -19,7 +20,12 @@ Claude reserved for architecture, security-sensitive work, and final review.
 Local output never ships unreviewed. Full routing rule, discovery protocol,
 and per-backend call instructions are in [`SKILL.md`](./SKILL.md).
 
-Only the local backends keep data on your machine. Everything else is
+For local work, the **Local model engine** tier discovers the engines available
+on the machine,
+counts their reachable models, and uses the engine with the largest usable
+local model inventory. It does not assume a particular engine or provider.
+
+Only local engines keep data on your machine. Everything else is
 somebody's cloud — including Claude — so the skill picks on **cost** and tells
 you to keep genuinely sensitive material local rather than pretending a
 "never use the cloud" rule it would violate on every call.
@@ -152,9 +158,9 @@ contents into separate arguments.
 ## "Local" doesn't have to mean this machine
 
 `scripts/call_local.sh` takes a base URL and has no localhost assumption, so
-any Ollama-compatible endpoint works — including a beefier box on the LAN
-serving a model that won't fit in your RAM. The serving host needs
-`OLLAMA_HOST=0.0.0.0` (Ollama binds `127.0.0.1` by default).
+any compatible local-engine endpoint works — including a beefier box on the
+LAN serving a model that won't fit in your RAM. Ask the user for a remote URL;
+do not scan the network for one.
 
 ⚠️ A remote endpoint is **not private**. The privacy property comes from
 `localhost`, not from the word "local" — treat any non-localhost URL like a
@@ -164,9 +170,9 @@ third-party cloud backend.
 
 ```
 SKILL.md                    the skill itself — read this first
-scripts/call_local.sh       calls a local Ollama/LM Studio server, with
-                             Anthropic/OpenAI dialect fallback and a
-                             stderr "receipt" line for evidence
+scripts/call_local.sh       calls a compatible local-engine endpoint, with
+                             Anthropic/OpenAI dialect fallback and a stderr
+                             "receipt" line for evidence
 references/codex.md         Codex: model selection BY CAPABILITY (not by
                              asking the user), the full CLI surface, and two
                              cost traps that reverse the obvious choice
@@ -176,8 +182,8 @@ references/cross-agent.md   how Claude Code, Codex and Antigravity find each
 references/benchmarks.md   grounding tier assignments in Artificial Analysis
                              indices, and how to QUERY them rather than
                              recall them
-references/local-backends.md  what Ollama and LM Studio verifiably do — tools,
-                             vision, embeddings, prompt caching, RAM limits
+references/local-backends.md  local endpoint requirements, model inventory,
+                             capability checks, and RAM limits
 references/local-notes.example.md
                             template for machine/account-specific facts
                              (quota, CLI paths), kept OUT of SKILL.md so the
@@ -185,8 +191,8 @@ references/local-notes.example.md
                              references/local-notes.md and edit that copy —
                              which is git-ignored and never committed
 tests/test_call_local.py    offline smoke test for call_local.sh (spins up
-                             mock HTTP servers, no real Ollama/LM Studio
-                             needed) — run with `python3 tests/test_call_local.py`
+                             mock HTTP servers; no real local engine needed) —
+                             run with `python3 tests/test_call_local.py`
 docs/MANUAL.md              the user manual — install, routing rule, every
                              backend, troubleshooting, honest limits, FAQ
 docs/index.html             the landing page, published via GitHub Pages
@@ -203,8 +209,8 @@ docs/DISCUSSIONS_SEED.md    six open questions from building this
 ## Requirements
 
 `bash`, `curl`, `python3` (stdlib only, no pip installs) for the bundled
-script. The skill itself works with whatever subset of Ollama / LM Studio /
-Codex CLI / Claude is actually installed — nothing here requires all four.
+script. The skill itself works with whatever local engine and cloud backends
+are actually available — nothing here requires a particular local engine.
 
 ## License
 

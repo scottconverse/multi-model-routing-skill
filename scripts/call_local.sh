@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Scott Converse
 #
-# call_local.sh — one-shot prompt against a local LLM server (Ollama, LM Studio).
+# call_local.sh — one-shot prompt against a compatible local LLM endpoint.
 #
 # Tries the Anthropic-format endpoint (/v1/messages) first; if the server says
 # it does not serve that endpoint (404/405/501), falls back to the OpenAI-format
@@ -19,9 +19,9 @@
 # a .cmd shim caps the whole command line near 8k).
 #
 # Examples:
-#   call_local.sh http://localhost:11434 qwen2.5-coder:7b "Reply with exactly: OK" 512
-#   call_local.sh http://localhost:1234  gemma-3-12b     file:prompt.txt            2048
-#   cat big.log | call_local.sh http://localhost:11434 qwen2.5:7b - 2048
+#   call_local.sh <base-url> <model> "Reply with exactly: OK" 512
+#   call_local.sh <base-url> <model> file:prompt.txt 2048
+#   cat big.log | call_local.sh <base-url> <model> - 2048
 #
 # Exit codes:
 #   0  reply on stdout
@@ -118,12 +118,8 @@ do_post() {
 # CALL_LOCAL_DIALECT: auto (default) | anthropic | openai
 #
 # `auto` probes /v1/messages then falls back. That is right for a local server,
-# which either serves a dialect or doesn't. It is wrong for a GATEWAY, where the
-# dialect depends on the MODEL: OpenCode Zen serves /v1/messages only for paid
-# Claude models and answers 401/400 for everything else, while its free models
-# work fine on /v1/chat/completions. Falling back on 400 generally is not the
-# answer -- a 400 is usually a genuine bad request and retrying would hide it.
-# So the caller states the dialect when it knows.
+# which either serves a dialect or doesn't. For a gateway where the dialect
+# depends on the model, the caller states the dialect when it knows.
 DIALECT="${CALL_LOCAL_DIALECT:-auto}"
 
 case "$DIALECT" in
