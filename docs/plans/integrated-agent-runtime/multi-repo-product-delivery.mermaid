@@ -1,0 +1,74 @@
+flowchart TD
+    intake{{"Approve the product contract"}}
+    preflight["Prove runtime and executable health<br/>max 2 attempts<br/>proves: preflight-report.json"]
+    snapshot["Lock source, runtime, and environment<br/>max 2 attempts<br/>proves: workspace-lock.json"]
+    load_governance["Lock the project's real process<br/>max 2 attempts<br/>proves: governance-contract.json"]
+    recall["Retrieve relevant prior outcomes"]
+    scout("Map product and repository behavior<br/>devharmonics/capable<br/>max 2 attempts<br/>proves: scout-report.json")
+    plan("Design the delivery plan<br/>devharmonics/capable<br/>max 3 attempts<br/>proves: delivery-plan.json")
+    plan_review("Cold-review plan completeness<br/>devharmonics/audit<br/>max 4 attempts<br/>proves: plan-review.json")
+    compile_graph["Compile the bounded execution graph<br/>max 3 attempts<br/>proves: work-package-dag.json"]
+    build_swarm("Execute visible work-package swarms<br/>devharmonics/build<br/>max 4 attempts<br/>proves: work-package-results.json")
+    repo_verify["Verify repository candidates<br/>max 8 attempts<br/>proves: repo-verification.json"]
+    assemble["Prepare and commit an integration set<br/>max 6 attempts<br/>proves: integration-receipt.json"]
+    integration_repair("Repair proven product or integration defects<br/>devharmonics/capable<br/>max 4 attempts<br/>proves: integration-repair.json")
+    cross_repo_verify["Verify integrated cross-repository behavior<br/>max 6 attempts<br/>proves: cross-repo-verification.json"]
+    artifact_build["Build the exact release candidate<br/>max 3 attempts<br/>proves: artifact-manifest.json"]
+    artifact_verify["Verify the artifact rather than the tree<br/>max 5 attempts<br/>proves: artifact-verification.json"]
+    product_journey("Exercise the approved product journey<br/>devharmonics/audit<br/>max 3 attempts<br/>proves: product-journey.json")
+    audit("Independently audit the acceptance packet<br/>devharmonics/audit<br/>max 4 attempts<br/>proves: acceptance-packet.json")
+    accept{{"Accept, hold, or reject the product"}}
+    publish["Apply the exact authorized disposition<br/>max 2 attempts<br/>proves: publication-receipt.json"]
+    record_learning["Record outcome-linked learning<br/>proves: learning-receipt.json"]
+    rejected["Close with a rejection package"]
+    complete["Close the durable run"]
+
+    intake -- "pass: product-contract.json" --> preflight
+    intake -- "fail: intake.decision.json" --> rejected
+    preflight -- "pass: preflight-report.json" --> snapshot
+    preflight -. "fail: preflight-report.json" .-> preflight
+    snapshot -- "pass: workspace-lock.json" --> load_governance
+    snapshot -. "fail: workspace-lock.json" .-> snapshot
+    load_governance -- "pass: governance-contract.json" --> recall
+    load_governance -. "fail: governance-contract.json" .-> load_governance
+    recall -- "prior-outcomes.json" --> scout
+    scout -- "pass: scout-report.json" --> plan
+    scout -. "fail: scout-report.json" .-> scout
+    plan -- "pass: delivery-plan.json" --> plan_review
+    plan -. "fail: delivery-plan.json" .-> plan
+    plan_review -- "pass: plan-review.json" --> compile_graph
+    plan_review -. "fail: plan-review.json" .-> plan
+    compile_graph -- "pass: work-package-dag.json" --> build_swarm
+    compile_graph -. "fail: work-package-dag.json" .-> plan
+    build_swarm -- "pass: candidate-lock.json" --> repo_verify
+    build_swarm -. "fail: work-package-results.json" .-> build_swarm
+    repo_verify -- "pass: repo-verification.json" --> assemble
+    repo_verify -. "fail: repo-verification.json" .-> build_swarm
+    assemble -- "pass: integration-receipt.json" --> cross_repo_verify
+    assemble -- "fail: integration-receipt.json" --> integration_repair
+    integration_repair -. "pass: candidate-lock.json" .-> repo_verify
+    integration_repair -. "fail: integration-repair.json" .-> integration_repair
+    cross_repo_verify -- "pass: cross-repo-verification.json" --> artifact_build
+    cross_repo_verify -. "fail: cross-repo-verification.json" .-> integration_repair
+    artifact_build -- "pass: artifact-manifest.json" --> artifact_verify
+    artifact_build -. "fail: artifact-manifest.json" .-> artifact_build
+    artifact_verify -- "pass: artifact-verification.json" --> product_journey
+    artifact_verify -. "fail: artifact-verification.json" .-> integration_repair
+    product_journey -- "pass: product-journey.json" --> audit
+    product_journey -. "fail: product-journey.json" .-> integration_repair
+    audit -- "pass: acceptance-packet.json" --> accept
+    audit -. "fail: acceptance-audit.json" .-> integration_repair
+    accept -- "pass: acceptance.decision.json" --> publish
+    accept -- "fail: acceptance.decision.json" --> rejected
+    publish -- "pass: publication-receipt.json" --> record_learning
+    publish -. "fail: publication-receipt.json" .-> publish
+    record_learning -- "pass: learning-receipt.json" --> complete
+    record_learning -- "fail: publication-receipt.json" --> complete
+    rejected -- "rejection-summary.json" --> complete
+
+    classDef code fill:#dbeafe,stroke:#1d4ed8,stroke-width:1px,color:#0b2a6b;
+    classDef agent fill:#ede9fe,stroke:#6d28d9,stroke-width:1px,color:#3b0764;
+    classDef human fill:#fef3c7,stroke:#b45309,stroke-width:1px,color:#4a2606;
+    class preflight,snapshot,load_governance,recall,compile_graph,repo_verify,assemble,cross_repo_verify,artifact_build,artifact_verify,publish,record_learning,rejected,complete code;
+    class scout,plan,plan_review,build_swarm,integration_repair,product_journey,audit agent;
+    class intake,accept human;

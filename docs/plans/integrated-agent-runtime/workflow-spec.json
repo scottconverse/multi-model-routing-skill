@@ -1,0 +1,789 @@
+{
+  "name": "multi-repo-product-delivery",
+  "goal": "Turn an owner-approved product outcome into an independently verified, artifact-bound multi-repository disposition and a provenance-linked learning record",
+  "trigger": "Scott approves a new product contract or explicitly resumes an existing DevHarmonics run",
+  "isolation": "sandbox",
+  "budget": {
+    "agent_calls": 96
+  },
+  "entry": "intake",
+  "nodes": [
+    {
+      "id": "intake",
+      "label": "Approve the product contract",
+      "kind": "human",
+      "detail": "Confirm the wanted product outcome, approved user journeys, exclusions, project/repositories, privacy and account policy, proof boundaries, and exact owner-only actions before any source is modified.",
+      "reads": [
+        "product-brief.md",
+        "project.yaml"
+      ],
+      "writes": [
+        "product-contract.json",
+        "intake.decision.json"
+      ]
+    },
+    {
+      "id": "preflight",
+      "label": "Prove runtime and executable health",
+      "kind": "code",
+      "detail": "Run the DevHarmonics doctor and hardened admission checks: verify the ledger/runtime, WorkflowWright compiler, Ruflo and Switchyard adapters, executor identities, model endpoints, credentials, ports, storage, local memory headroom, and project commands; refuse unpinned or substituted privileged executables.",
+      "reads": [
+        "product-contract.json",
+        "project.yaml"
+      ],
+      "writes": [
+        "preflight-report.json"
+      ],
+      "evidence": "preflight-report.json",
+      "max_attempts": 2,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "snapshot",
+      "label": "Lock source, runtime, and environment",
+      "kind": "code",
+      "detail": "Resolve every participating repository and dependency, record exact SHAs and dirty state, allocate the isolated multi-repository workspace, reserve exclusive resources, and lock runtime, adapter, route, model-inventory, executable, and environment identities.",
+      "reads": [
+        "product-contract.json",
+        "preflight-report.json",
+        "project.yaml"
+      ],
+      "writes": [
+        "workspace-lock.json",
+        "workspace-map.json"
+      ],
+      "evidence": "workspace-lock.json",
+      "max_attempts": 2,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "load_governance",
+      "label": "Lock the project's real process",
+      "kind": "code",
+      "detail": "Discover, hash, and validate the project-declared governance sources, required skills and workflows, acceptance journeys, release rules, and proof boundaries. Refuse to substitute a newly invented audit or harness without an explicit decision.",
+      "reads": [
+        "product-contract.json",
+        "project.yaml",
+        "workspace-lock.json",
+        "workspace-map.json"
+      ],
+      "writes": [
+        "governance-contract.json"
+      ],
+      "evidence": "governance-contract.json",
+      "max_attempts": 2,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "recall",
+      "label": "Retrieve relevant prior outcomes",
+      "kind": "code",
+      "detail": "Query the exact DevHarmonics ledger and its Ruflo memory projection for accepted patterns, rejected approaches, related findings, and route outcomes. Recall is advisory and fails open with an explicit empty or unavailable status.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "governance-contract.json"
+      ],
+      "writes": [
+        "prior-outcomes.json"
+      ]
+    },
+    {
+      "id": "scout",
+      "label": "Map product and repository behavior",
+      "kind": "agent",
+      "backend": "codex",
+      "model": "devharmonics/capable",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "detail": "Use a Ruflo-coordinated, read-only scout group to map user behavior, repository responsibilities, dependencies, contracts, tests, artifact paths, governance obligations, prior failures, and unknowns. The DevHarmonics runtime records every child and permits no source writes.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "workspace-map.json",
+        "governance-contract.json",
+        "prior-outcomes.json"
+      ],
+      "writes": [
+        "scout-report.json",
+        "dependency-graph.json"
+      ],
+      "evidence": "scout-report.json",
+      "max_attempts": 2,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "plan",
+      "label": "Design the delivery plan",
+      "kind": "agent",
+      "backend": "codex",
+      "model": "devharmonics/capable",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Write"
+      ],
+      "detail": "Produce an ordered multi-repository plan with product scenarios, contract changes, work packages, dependencies, write/resource scopes, executor capabilities, verification profiles, artifact bindings, rollback, and explicit unresolved owner decisions. On repair, address the cold review instead of replacing the contract.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "governance-contract.json",
+        "scout-report.json",
+        "dependency-graph.json",
+        "prior-outcomes.json",
+        "plan-review.json"
+      ],
+      "writes": [
+        "delivery-plan.json"
+      ],
+      "evidence": "delivery-plan.json",
+      "max_attempts": 3,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "plan_review",
+      "label": "Cold-review plan completeness",
+      "kind": "agent",
+      "backend": "codex",
+      "model": "devharmonics/audit",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "detail": "In a fresh read-only session with no producer framing, challenge the plan against the original product contract, locked governance, repository graph, historical failure shapes, source/artifact boundaries, unsafe concurrency, and unverifiable acceptance criteria.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "governance-contract.json",
+        "scout-report.json",
+        "dependency-graph.json",
+        "delivery-plan.json"
+      ],
+      "writes": [
+        "plan-review.json"
+      ],
+      "evidence": "plan-review.json",
+      "max_attempts": 4,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "compile_graph",
+      "label": "Compile the bounded execution graph",
+      "kind": "code",
+      "detail": "Run WorkflowWright structural validation, then compile the accepted lifecycle and delivery plan into an immutable DevHarmonics workflow revision and dependency DAG with typed inputs/outputs, dynamic child templates, leases, checks, retry/escalation policy, budgets, and causal invalidation rules. WorkflowWright does not start a competing scheduler.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "governance-contract.json",
+        "dependency-graph.json",
+        "delivery-plan.json",
+        "plan-review.json"
+      ],
+      "writes": [
+        "workflow-revision.json",
+        "work-package-dag.json"
+      ],
+      "evidence": "work-package-dag.json",
+      "max_attempts": 3,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "build_swarm",
+      "label": "Execute visible work-package swarms",
+      "kind": "agent",
+      "backend": "codex",
+      "model": "devharmonics/build",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Write",
+        "Edit",
+        "Bash"
+      ],
+      "detail": "DevHarmonics expands the ready DAG frontier into ledger-visible child work packages and asks Ruflo to coordinate the selected executors. Run independent scopes concurrently, enforce leases and model-resource limits, propagate accepted contract changes, and resume the responsible producer with exact verifier feedback on repair.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "governance-contract.json",
+        "workflow-revision.json",
+        "work-package-dag.json",
+        "prior-outcomes.json",
+        "repo-verification.json"
+      ],
+      "writes": [
+        "candidate-lock.json",
+        "work-package-results.json"
+      ],
+      "evidence": "work-package-results.json",
+      "max_attempts": 4,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "repo_verify",
+      "label": "Verify repository candidates",
+      "kind": "code",
+      "detail": "Run focused, regression, lint, type, policy, mutation where configured, and clean-process test profiles through the hardened DevHarmonics verifier against exact candidate SHAs. Invalidate stale dependents and emit normalized, producer-addressable failures.",
+      "reads": [
+        "product-contract.json",
+        "governance-contract.json",
+        "workspace-lock.json",
+        "candidate-lock.json",
+        "work-package-results.json"
+      ],
+      "writes": [
+        "repo-verification.json"
+      ],
+      "evidence": "repo-verification.json",
+      "max_attempts": 8,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "assemble",
+      "label": "Prepare and commit an integration set",
+      "kind": "code",
+      "detail": "Use the hardened two-phase DevHarmonics integration-set protocol to prepare one workspace from verified exact SHAs, resolve dependency order, generate shared contracts, run preparation gates, then atomically commit the integration lock without merging or publishing.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "candidate-lock.json",
+        "repo-verification.json",
+        "dependency-graph.json"
+      ],
+      "writes": [
+        "integration-lock.json",
+        "integration-receipt.json"
+      ],
+      "evidence": "integration-receipt.json",
+      "max_attempts": 6,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "integration_repair",
+      "label": "Repair proven product or integration defects",
+      "kind": "agent",
+      "backend": "codex",
+      "model": "devharmonics/capable",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Write",
+        "Edit",
+        "Bash"
+      ],
+      "detail": "Resume the responsible integration/producer sessions and repair only concrete assembly, cross-repository, artifact, product-journey, or audit findings. Update affected candidate SHAs and invalidations; do not reinterpret the approved product contract or weaken a gate.",
+      "reads": [
+        "product-contract.json",
+        "governance-contract.json",
+        "delivery-plan.json",
+        "candidate-lock.json",
+        "repo-verification.json",
+        "integration-lock.json",
+        "cross-repo-verification.json",
+        "artifact-verification.json",
+        "product-journey.json",
+        "acceptance-audit.json"
+      ],
+      "writes": [
+        "integration-repair.json",
+        "candidate-lock.json"
+      ],
+      "evidence": "integration-repair.json",
+      "max_attempts": 4,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "cross_repo_verify",
+      "label": "Verify integrated cross-repository behavior",
+      "kind": "code",
+      "detail": "Run schema, API, migration, package-consumer, service, end-to-end, upgrade/rollback, clean-process, and deliberately combined-process checks against the integration lock. Bind every result to exact source, executable, dependency, and environment identities.",
+      "reads": [
+        "product-contract.json",
+        "governance-contract.json",
+        "candidate-lock.json",
+        "repo-verification.json",
+        "integration-lock.json",
+        "integration-receipt.json"
+      ],
+      "writes": [
+        "cross-repo-verification.json"
+      ],
+      "evidence": "cross-repo-verification.json",
+      "max_attempts": 6,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "artifact_build",
+      "label": "Build the exact release candidate",
+      "kind": "code",
+      "detail": "Build installers, packages, images, or deployment bundles only from the integration lock. Produce content hashes, embedded source/runtime probes, source-to-artifact bindings, dependency SBOM, applicable license notices, and signatures where configured; reject reused or unbound payloads.",
+      "reads": [
+        "product-contract.json",
+        "governance-contract.json",
+        "integration-lock.json",
+        "cross-repo-verification.json"
+      ],
+      "writes": [
+        "artifact-manifest.json"
+      ],
+      "evidence": "artifact-manifest.json",
+      "max_attempts": 3,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "artifact_verify",
+      "label": "Verify the artifact rather than the tree",
+      "kind": "code",
+      "detail": "Install, launch, upgrade, or deploy the exact artifact in the required clean profile; prove embedded source/runtime identities and payload hashes; rerun release-critical checks; and test uninstall or rollback where applicable.",
+      "reads": [
+        "product-contract.json",
+        "governance-contract.json",
+        "integration-lock.json",
+        "artifact-manifest.json"
+      ],
+      "writes": [
+        "artifact-verification.json"
+      ],
+      "evidence": "artifact-verification.json",
+      "max_attempts": 5,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "product_journey",
+      "label": "Exercise the approved product journey",
+      "kind": "agent",
+      "backend": "codex",
+      "model": "devharmonics/audit",
+      "tools": [
+        "Read",
+        "Bash",
+        "Browser"
+      ],
+      "detail": "In a cold session and the product contract's required environment, execute the pre-approved newcomer/operator journeys against the exact artifact. Capture screenshots, logs, state, automation limits, and physical observations; do not replace the journey with a self-designed API harness.",
+      "reads": [
+        "product-contract.json",
+        "governance-contract.json",
+        "integration-lock.json",
+        "artifact-manifest.json",
+        "artifact-verification.json"
+      ],
+      "writes": [
+        "product-journey.json"
+      ],
+      "evidence": "product-journey.json",
+      "max_attempts": 3,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "audit",
+      "label": "Independently audit the acceptance packet",
+      "kind": "agent",
+      "backend": "codex",
+      "model": "devharmonics/audit",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "detail": "In a fresh read-only route with no producer affinity, reconcile the original contract, locked governance, source and integration locks, executor receipts, verification, artifact binding, product journey, unresolved limits, and requested disposition. Reject stale, missing, circular, generalized, or self-certified evidence.",
+      "reads": [
+        "product-contract.json",
+        "workspace-lock.json",
+        "governance-contract.json",
+        "delivery-plan.json",
+        "candidate-lock.json",
+        "work-package-results.json",
+        "repo-verification.json",
+        "integration-lock.json",
+        "cross-repo-verification.json",
+        "artifact-manifest.json",
+        "artifact-verification.json",
+        "product-journey.json"
+      ],
+      "writes": [
+        "acceptance-audit.json",
+        "acceptance-packet.json"
+      ],
+      "evidence": "acceptance-packet.json",
+      "max_attempts": 4,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "accept",
+      "label": "Accept, hold, or reject the product",
+      "kind": "human",
+      "detail": "Review the product demonstration and concise acceptance packet. Decide whether the outcome is wanted and proven, and authorize an exact merge, tag, release, deployment, hold, or rejection without needing to inspect raw agent transcripts.",
+      "reads": [
+        "product-contract.json",
+        "acceptance-packet.json",
+        "artifact-manifest.json",
+        "product-journey.json"
+      ],
+      "writes": [
+        "acceptance.decision.json"
+      ]
+    },
+    {
+      "id": "publish",
+      "label": "Apply the exact authorized disposition",
+      "kind": "code",
+      "detail": "Execute only the idempotent merge, tag, release, deployment, rollback, or hold action named in the acceptance decision. Re-verify remote state and published artifact hashes and write a receipt. Hold performs no external mutation.",
+      "reads": [
+        "acceptance.decision.json",
+        "integration-lock.json",
+        "artifact-manifest.json",
+        "artifact-verification.json",
+        "acceptance-audit.json"
+      ],
+      "writes": [
+        "publication-receipt.json"
+      ],
+      "evidence": "publication-receipt.json",
+      "max_attempts": 2,
+      "on_exhausted": "human"
+    },
+    {
+      "id": "record_learning",
+      "label": "Record outcome-linked learning",
+      "kind": "code",
+      "detail": "Join producer trajectories and Switchyard routes to deterministic, product-journey, audit, publication, and human outcomes; update the rebuildable Ruflo memory projection; append replayable evaluation cases; and create promotion proposals without changing production behavior.",
+      "reads": [
+        "acceptance.decision.json",
+        "publication-receipt.json",
+        "work-package-results.json",
+        "repo-verification.json",
+        "cross-repo-verification.json",
+        "artifact-verification.json",
+        "product-journey.json",
+        "acceptance-audit.json"
+      ],
+      "writes": [
+        "learning-receipt.json"
+      ],
+      "evidence": "learning-receipt.json",
+      "max_attempts": 1,
+      "on_exhausted": "fail"
+    },
+    {
+      "id": "rejected",
+      "label": "Close with a rejection package",
+      "kind": "code",
+      "detail": "Record why intake or acceptance was declined, preserve evidence, release leases and owned resources, and require a new or explicitly resumed product contract before further source work.",
+      "reads": [
+        "intake.decision.json",
+        "acceptance.decision.json"
+      ],
+      "writes": [
+        "rejection-summary.json"
+      ],
+      "max_attempts": 1,
+      "on_exhausted": "fail"
+    },
+    {
+      "id": "complete",
+      "label": "Close the durable run",
+      "kind": "code",
+      "detail": "Finalize the DevHarmonics ledger, release owned leases/resources, preserve any explicit learning failure as follow-up debt, and generate the concise operator summary with exact evidence and disposition links.",
+      "reads": [
+        "acceptance.decision.json",
+        "publication-receipt.json",
+        "learning-receipt.json",
+        "rejection-summary.json"
+      ],
+      "writes": [
+        "run-summary.json"
+      ],
+      "max_attempts": 1,
+      "on_exhausted": "fail"
+    }
+  ],
+  "edges": [
+    {
+      "from": "intake",
+      "to": "preflight",
+      "when": "pass",
+      "payload": "product-contract.json"
+    },
+    {
+      "from": "intake",
+      "to": "rejected",
+      "when": "fail",
+      "payload": "intake.decision.json"
+    },
+    {
+      "from": "preflight",
+      "to": "snapshot",
+      "when": "pass",
+      "payload": "preflight-report.json"
+    },
+    {
+      "from": "preflight",
+      "to": "preflight",
+      "when": "fail",
+      "payload": "preflight-report.json",
+      "loop": true
+    },
+    {
+      "from": "snapshot",
+      "to": "load_governance",
+      "when": "pass",
+      "payload": "workspace-lock.json"
+    },
+    {
+      "from": "snapshot",
+      "to": "snapshot",
+      "when": "fail",
+      "payload": "workspace-lock.json",
+      "loop": true
+    },
+    {
+      "from": "load_governance",
+      "to": "recall",
+      "when": "pass",
+      "payload": "governance-contract.json"
+    },
+    {
+      "from": "load_governance",
+      "to": "load_governance",
+      "when": "fail",
+      "payload": "governance-contract.json",
+      "loop": true
+    },
+    {
+      "from": "recall",
+      "to": "scout",
+      "when": "always",
+      "payload": "prior-outcomes.json"
+    },
+    {
+      "from": "scout",
+      "to": "plan",
+      "when": "pass",
+      "payload": "scout-report.json"
+    },
+    {
+      "from": "scout",
+      "to": "scout",
+      "when": "fail",
+      "payload": "scout-report.json",
+      "loop": true
+    },
+    {
+      "from": "plan",
+      "to": "plan_review",
+      "when": "pass",
+      "payload": "delivery-plan.json"
+    },
+    {
+      "from": "plan",
+      "to": "plan",
+      "when": "fail",
+      "payload": "delivery-plan.json",
+      "loop": true
+    },
+    {
+      "from": "plan_review",
+      "to": "compile_graph",
+      "when": "pass",
+      "payload": "plan-review.json"
+    },
+    {
+      "from": "plan_review",
+      "to": "plan",
+      "when": "fail",
+      "payload": "plan-review.json",
+      "loop": true
+    },
+    {
+      "from": "compile_graph",
+      "to": "build_swarm",
+      "when": "pass",
+      "payload": "work-package-dag.json"
+    },
+    {
+      "from": "compile_graph",
+      "to": "plan",
+      "when": "fail",
+      "payload": "work-package-dag.json",
+      "loop": true
+    },
+    {
+      "from": "build_swarm",
+      "to": "repo_verify",
+      "when": "pass",
+      "payload": "candidate-lock.json"
+    },
+    {
+      "from": "build_swarm",
+      "to": "build_swarm",
+      "when": "fail",
+      "payload": "work-package-results.json",
+      "loop": true
+    },
+    {
+      "from": "repo_verify",
+      "to": "assemble",
+      "when": "pass",
+      "payload": "repo-verification.json"
+    },
+    {
+      "from": "repo_verify",
+      "to": "build_swarm",
+      "when": "fail",
+      "payload": "repo-verification.json",
+      "loop": true
+    },
+    {
+      "from": "assemble",
+      "to": "cross_repo_verify",
+      "when": "pass",
+      "payload": "integration-receipt.json"
+    },
+    {
+      "from": "assemble",
+      "to": "integration_repair",
+      "when": "fail",
+      "payload": "integration-receipt.json"
+    },
+    {
+      "from": "integration_repair",
+      "to": "repo_verify",
+      "when": "pass",
+      "payload": "candidate-lock.json",
+      "loop": true
+    },
+    {
+      "from": "integration_repair",
+      "to": "integration_repair",
+      "when": "fail",
+      "payload": "integration-repair.json",
+      "loop": true
+    },
+    {
+      "from": "cross_repo_verify",
+      "to": "artifact_build",
+      "when": "pass",
+      "payload": "cross-repo-verification.json"
+    },
+    {
+      "from": "cross_repo_verify",
+      "to": "integration_repair",
+      "when": "fail",
+      "payload": "cross-repo-verification.json",
+      "loop": true
+    },
+    {
+      "from": "artifact_build",
+      "to": "artifact_verify",
+      "when": "pass",
+      "payload": "artifact-manifest.json"
+    },
+    {
+      "from": "artifact_build",
+      "to": "artifact_build",
+      "when": "fail",
+      "payload": "artifact-manifest.json",
+      "loop": true
+    },
+    {
+      "from": "artifact_verify",
+      "to": "product_journey",
+      "when": "pass",
+      "payload": "artifact-verification.json"
+    },
+    {
+      "from": "artifact_verify",
+      "to": "integration_repair",
+      "when": "fail",
+      "payload": "artifact-verification.json",
+      "loop": true
+    },
+    {
+      "from": "product_journey",
+      "to": "audit",
+      "when": "pass",
+      "payload": "product-journey.json"
+    },
+    {
+      "from": "product_journey",
+      "to": "integration_repair",
+      "when": "fail",
+      "payload": "product-journey.json",
+      "loop": true
+    },
+    {
+      "from": "audit",
+      "to": "accept",
+      "when": "pass",
+      "payload": "acceptance-packet.json"
+    },
+    {
+      "from": "audit",
+      "to": "integration_repair",
+      "when": "fail",
+      "payload": "acceptance-audit.json",
+      "loop": true
+    },
+    {
+      "from": "accept",
+      "to": "publish",
+      "when": "pass",
+      "payload": "acceptance.decision.json"
+    },
+    {
+      "from": "accept",
+      "to": "rejected",
+      "when": "fail",
+      "payload": "acceptance.decision.json"
+    },
+    {
+      "from": "publish",
+      "to": "record_learning",
+      "when": "pass",
+      "payload": "publication-receipt.json"
+    },
+    {
+      "from": "publish",
+      "to": "publish",
+      "when": "fail",
+      "payload": "publication-receipt.json",
+      "loop": true
+    },
+    {
+      "from": "record_learning",
+      "to": "complete",
+      "when": "pass",
+      "payload": "learning-receipt.json"
+    },
+    {
+      "from": "record_learning",
+      "to": "complete",
+      "when": "fail",
+      "payload": "publication-receipt.json"
+    },
+    {
+      "from": "rejected",
+      "to": "complete",
+      "when": "always",
+      "payload": "rejection-summary.json"
+    }
+  ],
+  "open_questions": [
+    "Choose the physical product repository and upstream-source topology. Wholesale adoption is fixed; monorepo, forks plus pins, subtrees, or full vendored snapshots are not yet selected.",
+    "Confirm the proposed convergence baseline: DevHarmonics v1 as the durable runtime and mission-control chassis, with the current DevHarmonics hardened kernel ported into it.",
+    "Choose the native Windows, WSL2, or split host boundary after baseline tests establish process, path, localhost, UI, and clean-environment behavior.",
+    "WorkflowWright has no native dynamic map node. Decide whether to add a general schema feature or keep the standard schema and have the DevHarmonics compiler expand build_swarm into fully visible, budgeted children.",
+    "The reference spec uses backend codex plus logical route aliases so it remains valid with today's WorkflowWright renderer. Production execution requires a DevHarmonics backend/compilation extension; the metadata does not itself authorize OpenAI or any off-machine destination.",
+    "The 96-agent-call ceiling is a structural placeholder that closes the reference workflow's loops, not a proposed product default. Define project profiles with separate local, account-metered, anonymous-cloud, wall-clock, concurrency, model-residency, and disk ceilings.",
+    "Choose whether a basic compatibility install remains alongside full and developer profiles, or whether the complete runtime is always installed.",
+    "Choose the first preserved CivicCast failure replay. The system specification recommends the stale installer payload chain because it exercises the most boundaries.",
+    "Confirm default human gates and who may promote memory, prompt, skill, Switchyard route, adapter, or local-model changes.",
+    "Choose the first externally mutating adapters and authoritative repositories for merge, tag, artifact publication, deployment, and rollback."
+  ]
+}
