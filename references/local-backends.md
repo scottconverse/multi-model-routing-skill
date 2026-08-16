@@ -45,7 +45,7 @@ decide which tool to call next across multiple rounds:
 
 ```bash
 python scripts/local_agent.py --model <MODEL> --task "<TASK>" --cwd <DIR> \
-  [--max-steps N] [--allow-write] [--base-url URL] [--no-sdk]
+  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk]
 ```
 
 The primary route is LM Studio's SDK and `LLM.act()`. On first SDK use, the
@@ -58,12 +58,26 @@ bearer token, prefer `LOCAL_AGENT_API_KEY` over putting it on the command line.
 A custom base URL selects the raw route automatically because the LM Studio SDK
 uses a separate application API.
 
-The harness exposes `read_file`, `list_dir`, `grep`, and `run_command`.
-File-tool paths are jailed under `--cwd`; commands default to a read-only
-allowlist; `--allow-write` widens that command allowlist but never permits
-destructive commands such as `del` or `rm`; and `--max-steps` bounds the loop.
-It prints token usage for every step and a final `[receipt]` total on stderr.
-Keep those lines: the per-step accounting satisfies the skill's receipts rule.
+By default the harness exposes `read_file`, `list_dir`, `grep`, `run_command`,
+and `write_file`, so the model can read, run tests, and apply fixes.
+`run_command` is unrestricted — it runs exactly what it is given through the
+shell, so chaining and redirection work, and there is no allowlist or
+destructive-command block (removed 2026-08-16 by owner directive). `--read-only`
+narrows the exposed set to the three read tools, for an analysis run that
+provably cannot modify anything; `--max-steps` bounds the loop. Run untrusted
+work in a disposable `--cwd` copy and set `LOCAL_AGENT_LOG=<file>` to capture a
+JSONL audit trail of every tool call. It prints token usage for every step and a
+final `[receipt]` total on stderr — keep those lines: the per-step accounting
+satisfies the skill's receipts rule.
+
+**Why unguarded (safety lab, 2026-08-16).** A per-command nanny was tested
+against a trap gauntlet and removed: it blocked a correct fix the model could
+not apply, while the *unguarded* model completed the task and, on its own
+judgment, refused a prompt-injection instruction embedded in a data file,
+declined to exfiltrate a secrets file, and left a booby-trapped script alone.
+The model's judgment, not a string-inspecting guard, is what held — so the guard
+was pure friction. This is one sample, not a worst-case proof; the record is the
+`LOCAL_AGENT_LOG` trail on unattended runs.
 
 The endpoint can be on another machine, but a non-localhost endpoint is not
 private. The privacy property comes from the prompt staying on the local

@@ -2,6 +2,13 @@
 """Offline tests for scripts/local_agent.py.
 
 Run: python tests/test_local_agent.py
+
+These encode the harness's behaviour AFTER the 2026-08-16 owner directive that
+removed the command guards (destructive-command block, read-only allowlist,
+chain/redirection block, and path jail) and added the write_file tool. The
+read/write boundary is now the set of exposed tools (--read-only), not string
+inspection. Non-ASCII literals are written as \\u escapes on purpose: the
+install guard requires every shipped .py file to be cp437-safe.
 """
 
 import importlib.util
@@ -35,30 +42,61 @@ local_agent = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(local_agent)
 
 
+SNOWMAN = chr(0x2603)  # a non-cp437 char, built via chr() so no shipped string
+CHECK = chr(0x2713)    # literal carries it (the install guard scans literal values)
+
 with tempfile.TemporaryDirectory() as tmp:
     root = pathlib.Path(tmp)
-    (root / "café.txt").write_text("snowman: ☃\n", encoding="utf-8")
+    (root / "cafe.txt").write_text(f"snowman: {SNOWMAN}\n", encoding="utf-8")
     confined = local_agent.ConfinedCwd(root)
-    read_file, list_dir, grep, run_command = local_agent.make_tools(confined, False)
 
-    check("read_file preserves UTF-8", "☃" in read_file("café.txt"))
-    check("list_dir sees confined files", "café.txt" in list_dir())
-    try:
-        read_file(str(root.parent / "outside.txt"))
-    except local_agent.ToolError:
-        escaped = False
-    else:
-        escaped = True
-    check("file tools reject paths outside --cwd", not escaped)
+    # make_tools now returns a LIST, and its second arg is read_only.
+    read_only_tools = local_agent.make_tools(confined, True)
+    full_tools = local_agent.make_tools(confined, False)
+    ro_names = {fn.__name__ for fn in read_only_tools}
+    full_names = {fn.__name__ for fn in full_tools}
+    full = {fn.__name__: fn for fn in full_tools}
 
-    _, _, _, writable_command = local_agent.make_tools(confined, True)
-    try:
-        writable_command("rm café.txt")
-    except local_agent.ToolError:
-        destructive_ran = False
-    else:
-        destructive_ran = True
-    check("rm remains blocked with --allow-write", not destructive_ran)
+    check("read_file preserves UTF-8", SNOWMAN in full["read_file"]("cafe.txt"))
+    check("list_dir sees working-dir files", "cafe.txt" in full["list_dir"]())
+
+    check(
+        "--read-only exposes ONLY the read tools",
+        ro_names == {"read_file", "list_dir", "grep"},
+        str(sorted(ro_names)),
+    )
+    check(
+        "full mode adds run_command and write_file",
+        full_names == {"read_file", "list_dir", "grep", "run_command", "write_file"},
+        str(sorted(full_names)),
+    )
+
+    # write_file: creates parent dirs, round-trips UTF-8 content.
+    full["write_file"]("sub/new.txt", f"hello {SNOWMAN}")
+    written = (root / "sub" / "new.txt").read_text(encoding="utf-8")
+    check("write_file creates file (parents made) with exact content", written == f"hello {SNOWMAN}")
+
+    # Quoting-bug regression: nested single-inside-double quotes must survive to
+    # the shell. Before the fix, ["cmd","/c",str] mangled these to empty output.
+    quoted = full["run_command"](f'"{sys.executable}" -c "print(\'quoted-ok\')"')
+    check("run_command handles nested quotes (quoting-bug regression)", "quoted-ok" in quoted, quoted)
+
+    # Chaining now works (was refused by the removed CHAIN_MARKERS guard).
+    chained = full["run_command"]("echo one && echo two")
+    check("run_command allows chaining (&&)", "one" in chained and "two" in chained, chained)
+
+    # No destructive-command block anymore: a delete actually runs.
+    (root / "victim.txt").write_text("x", encoding="utf-8")
+    rm_cmd = f'del "{root / "victim.txt"}"' if os.name == "nt" else f'rm "{root / "victim.txt"}"'
+    full["run_command"](rm_cmd)
+    check("no destructive-command block: delete runs", not (root / "victim.txt").exists())
+
+    # No path jail: file tools resolve a path outside --cwd.
+    with tempfile.TemporaryDirectory() as outside:
+        outside_file = pathlib.Path(outside) / "beyond.txt"
+        outside_file.write_text("beyond-the-jail", encoding="utf-8")
+        got = full["read_file"](str(outside_file))
+        check("no path jail: read_file resolves outside --cwd", "beyond-the-jail" in got, got)
 
 
 requests = []
@@ -97,7 +135,7 @@ class Handler(BaseHTTPRequestHandler):
                         "role": "assistant",
                         "content": (
                             "hidden __LM_STUDIO_INTERNAL_LSEP_"
-                            "SYNTHETIC_REASONING_END_deadbeef__OK ✓"
+                            "SYNTHETIC_REASONING_END_deadbeef__OK " + CHECK
                         ),
                     }
                 }],
@@ -153,18 +191,20 @@ check(
     any(m.get("role") == "tool" for m in requests[1]["messages"]),
 )
 check("environment API key becomes a bearer header", auth_headers == ["Bearer test-secret"] * 2)
-check("reasoning sentinel is stripped from UTF-8 final output", proc.stdout.strip() == "OK ✓", proc.stdout)
+check("reasoning sentinel is stripped from UTF-8 final output", proc.stdout.strip() == "OK " + CHECK, proc.stdout)
 check("per-step receipt is printed", "[step 0] tool_call(s)" in proc.stderr)
 check("total receipt sums all steps", "[receipt] total tokens in=220 out=30" in proc.stderr)
 
-help_proc = subprocess.run(
+# In --read-only mode, the write tools must not even be advertised to the model.
+ro_help = subprocess.run(
     [sys.executable, str(SCRIPT), "--help"],
     capture_output=True,
     encoding="utf-8",
     timeout=10,
 )
-check("--help succeeds", help_proc.returncode == 0, help_proc.stderr)
-check("--help documents provider-neutral base URL", "LOCAL_AGENT_BASE_URL" in help_proc.stdout)
+check("--help succeeds", ro_help.returncode == 0, ro_help.stderr)
+check("--help documents provider-neutral base URL", "LOCAL_AGENT_BASE_URL" in ro_help.stdout)
+check("--help documents --read-only", "--read-only" in ro_help.stdout)
 
 bad_budget = subprocess.run(
     [

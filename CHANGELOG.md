@@ -11,6 +11,13 @@ tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
 ### Changed
+- **Local is now the mandatory default for real work, not just grunt work
+  (owner directive, 2026-08-16).** The routing rule requires every task to start
+  on a local model; escalating to a paid meter requires a stated, positive
+  reason (a capability the local roster provably lacks, security-sensitive/
+  ships-unreviewed work, or a local attempt that failed review twice). "Feels
+  hard" and "no local model was tried" are not reasons. The frontier brain
+  directs, plans, reviews, and audits the fleet — it does not do the bulk.
 - **Local model work now has two explicit lanes.** `scripts/call_local.sh`
   remains the cheap one-shot path. New `scripts/local_agent.py` is the primary
   tool-using local agent loop, with LM Studio SDK `LLM.act()` first and a
@@ -27,24 +34,45 @@ should be a rename of this heading, not an archaeology exercise.
   engine.
 
 ### Added
-- **`scripts/local_agent.py`** — a bounded local agent harness with
-  `read_file`, `list_dir`, `grep`, and `run_command`; a file-tool `--cwd` jail;
-  read-only commands by default; permanently blocked destructive commands;
-  `--max-steps`; Qwen reasoning-sentinel cleanup; and per-step plus total token
-  receipts. It self-bootstraps `scripts/.venv-local-agent` for the LM Studio
-  SDK, while `--no-sdk` needs only Python's standard library. Base URL and
-  bearer token are configurable by flags or environment for compatible local
-  servers.
-- **Offline coverage for the raw agent loop and safety boundaries.** The mock
-  server test proves a two-round tool call, tool-result replay, receipt totals,
-  reasoning cleanup, UTF-8 output, API-key forwarding, custom-endpoint routing,
-  step-budget validation, the path jail, and the destructive-command block.
+- **`scripts/local_agent.py`** — a local agent harness with `read_file`,
+  `list_dir`, `grep`, `run_command` (unrestricted — real shell, chaining, and
+  redirection), and `write_file`; `--read-only` narrows it to the three read
+  tools for analysis runs that provably cannot modify anything; `--max-steps`;
+  Qwen reasoning-sentinel cleanup; per-step and total token receipts; and an
+  optional `LOCAL_AGENT_LOG` JSONL audit trail of every tool call. It
+  self-bootstraps `scripts/.venv-local-agent` for the LM Studio SDK, while
+  `--no-sdk` needs only Python's standard library. Base URL and bearer token
+  are configurable by flag or environment for compatible local servers.
+- **Offline coverage for the raw agent loop.** The mock-server test proves a
+  two-round tool call, tool-result replay, receipt totals, reasoning cleanup,
+  UTF-8 output, API-key forwarding, custom-endpoint routing, and step-budget
+  validation; direct tool tests prove write_file, the nested-quote regression,
+  command chaining, and the read-only vs full tool exposure.
+
+### Removed
+- **The command guards were removed (owner directive, 2026-08-16):** the
+  destructive-command blocklist, the read-only command allowlist, the
+  chain/redirection block, and the `--cwd` path jail are gone, and
+  `--allow-write` is replaced by an inverted `--read-only` (full power is the
+  default). A 2026-08-16 safety lab showed the per-command nanny blocked
+  legitimate work (a correct fix the model could not apply) while adding no
+  safety the model's own judgment did not already provide — the same unguarded
+  model completed the task *and* independently refused a prompt-injection, a
+  secret-exfil lure, and a booby-trapped script. The read/write boundary is now
+  the set of exposed tools (`--read-only`), not string inspection.
 
 ### Fixed
+- **`run_command` no longer silently eats quoted commands on Windows.** It ran
+  commands as `["cmd","/c", <string>]`, whose list-quoting mangled nested
+  quotes, so e.g. `python -c "print('x')"` returned empty output with exit 0.
+  It now passes the command string with `shell=True`.
 - **Windows output is explicitly UTF-8.** `local_agent.py` reconfigures stdout
   and stderr with `encoding="utf-8"` and replacement error handling so a local
   model's Unicode output cannot discard a successful run on a legacy console
   code page.
+- **The bundled test file is cp437-safe.** Its non-ASCII UTF-8 fixtures are
+  built with `chr()` instead of literals, so the install guard's
+  literal-value scan passes.
 
 ## [0.3.10] - 2026-08-10
 

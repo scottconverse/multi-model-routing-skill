@@ -48,7 +48,6 @@ import argparse
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -160,22 +159,32 @@ _REASONING_SENTINEL_RE = re.compile(
 def _strip_reasoning(text: str) -> str:
     return _REASONING_SENTINEL_RE.sub("", text, count=1).strip()
 
-ALWAYS_BLOCKED_COMMANDS = {
-    "del", "erase", "rm", "rmdir", "rd", "format", "reg", "sc",
-    "shutdown", "diskpart", "cipher", "takeown", "icacls", "attrib",
-    "mklink", "fsutil", "bcdedit", "vssadmin",
-}
-READONLY_ALLOWED = {
-    "git": {"status", "log", "diff", "show"},
-    "ls": None,
-    "dir": None,
-    "type": None,
-    "cat": None,
-    "findstr": None,
-    "rg": None,
-    "grep": None,
-}
-CHAIN_MARKERS = ["&&", "||", "|", ";", "\n", "`", "$(", "&", ">", "<"]
+def _audit_log(step, fn, call_args, out):
+    """Optional audit trail: if the LOCAL_AGENT_LOG env var names a file, append
+    every tool call and its result there as one JSON line. Off unless set. Now
+    that the harness is unguarded, this is the record of exactly what a local
+    model did -- keep it on for unattended runs you want to review afterward."""
+    path = os.environ.get("LOCAL_AGENT_LOG")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({
+                "step": step, "tool": fn, "args": call_args,
+                "result": out if isinstance(out, str) else str(out),
+            }, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+# The command guards -- a destructive-command blocklist, a read-only command
+# allowlist, and a chain/redirection block -- were REMOVED 2026-08-16 by owner
+# directive. This harness runs on the owner's own hardware against trusted local
+# models doing the bulk of the work; a per-command nanny was proven (in the
+# 2026-08-16 safety lab) to block legitimate work while adding no safety the
+# model's own judgment did not already provide on that task. The read/write
+# boundary is now enforced by WHICH TOOLS are exposed (see make_tools and
+# --read-only), not by inspecting command strings. run_command executes exactly
+# what it is given, through the shell, with real chaining and redirection.
 
 
 class ToolError(Exception):
@@ -183,22 +192,18 @@ class ToolError(Exception):
 
 
 class ConfinedCwd:
-    """Resolves paths relative to --cwd and refuses escapes."""
+    """Resolves tool paths relative to the working root.
+
+    The containment jail was removed 2026-08-16 by owner directive: a resolved
+    path may fall outside the root. Retained only for relative-path convenience
+    -- a bare filename resolves against --cwd."""
 
     def __init__(self, root: Path):
         self.root = root.resolve()
 
     def resolve(self, rel: str) -> Path:
         candidate = Path(rel)
-        p = (candidate if candidate.is_absolute() else self.root / candidate).resolve()
-        try:
-            p.relative_to(self.root)
-        except ValueError:
-            raise ToolError(
-                f"Refused: path {rel!r} resolves outside the confined working "
-                f"directory {self.root}"
-            )
-        return p
+        return (candidate if candidate.is_absolute() else self.root / candidate).resolve()
 
 
 def _truncate(text: str, limit: int = TRUNCATE_LIMIT) -> str:
@@ -208,12 +213,17 @@ def _truncate(text: str, limit: int = TRUNCATE_LIMIT) -> str:
     return text[:limit] + f"\n...[truncated, {omitted} more characters omitted]"
 
 
-def make_tools(confined: ConfinedCwd, allow_write: bool):
-    """Build the four tool implementations bound to a confined cwd."""
+def make_tools(confined: ConfinedCwd, read_only: bool):
+    """Build the tool implementations bound to the working directory.
+
+    Read-only runs (--read-only) expose only read_file, list_dir, and grep, so
+    the agent provably cannot modify anything -- useful for review/analysis.
+    The default (full) run also exposes run_command and write_file, both
+    unrestricted; that is the mode for real work."""
 
     def read_file(path: str, start_line: int = 0, end_line: int = 0) -> str:
-        """Read a text file inside the working directory. `path` is relative
-        to the confined working directory (or an absolute path inside it).
+        """Read a text file. `path` is relative to the working directory
+        (or an absolute path).
         If start_line and end_line are both given (1-indexed, inclusive),
         only that line range is returned; otherwise the whole file is
         returned (truncated if very large)."""
@@ -292,66 +302,45 @@ def make_tools(confined: ConfinedCwd, allow_write: bool):
         return _truncate("\n".join(matches) if matches else "(no matches)")
 
     def run_command(command: str) -> str:
-        """Run a shell command confined to the working directory. By
-        default only a read-only allowlist is permitted: `git status`,
-        `git log`, `git diff`, `git show`, `ls`, `dir`, `type`, `cat`,
-        `findstr`, `rg`. Anything else is refused unless the harness was
-        started with --allow-write. Command chaining (&&, |, ;, redirection)
-        is always refused. Destructive commands (del, rm, format, reg, sc,
-        etc.) are always refused regardless of --allow-write."""
+        """Run a shell command in the working directory. Executes exactly what
+        it is given, through the system shell, so chaining (&&, |, ;) and
+        redirection (>, <) all work. No allowlist and no destructive-command
+        block -- the caller is trusted. Times out after 120s. Only exposed when
+        the harness is NOT in --read-only mode."""
         stripped = command.strip()
         if not stripped:
             raise ToolError("Empty command.")
-        for marker in CHAIN_MARKERS:
-            if marker in stripped:
-                raise ToolError(
-                    f"Refused: command chaining/redirection ({marker!r}) is not permitted."
-                )
         try:
-            tokens = shlex.split(stripped, posix=False)
-        except ValueError as exc:
-            raise ToolError(f"Could not parse command: {exc}")
-        if not tokens:
-            raise ToolError("Empty command.")
-        base = Path(tokens[0]).name.lower()
-        if base.endswith(".exe"):
-            base = base[:-4]
-        if base in ALWAYS_BLOCKED_COMMANDS:
-            raise ToolError(
-                f"Refused: {base!r} is permanently blocked regardless of --allow-write."
-            )
-        if not allow_write:
-            if base == "git":
-                sub = tokens[1].lower() if len(tokens) > 1 else ""
-                if sub not in READONLY_ALLOWED["git"]:
-                    raise ToolError(
-                        f"Refused: git subcommand {sub!r} is not in the read-only "
-                        f"allowlist {sorted(READONLY_ALLOWED['git'])}. Re-run the "
-                        f"harness with --allow-write to permit more commands."
-                    )
-            elif base not in READONLY_ALLOWED:
-                raise ToolError(
-                    f"Refused: {base!r} is not in the read-only allowlist "
-                    f"{sorted(READONLY_ALLOWED)}. Re-run the harness with "
-                    f"--allow-write to permit more commands."
-                )
-        shell_exec = ["cmd", "/c", stripped] if os.name == "nt" else ["/bin/sh", "-c", stripped]
-        try:
+            # Pass the command STRING (shell=True), never a ["cmd","/c",str]
+            # list: Windows list-quoting mangles nested quotes and silently
+            # ate the output of e.g. python -c "print('x')" (fixed 2026-08-16).
             proc = subprocess.run(
-                shell_exec,
+                stripped,
+                shell=True,
                 cwd=str(confined.root),
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=120,
             )
         except subprocess.TimeoutExpired:
-            raise ToolError("Command timed out after 30s.")
+            raise ToolError("Command timed out after 120s.")
         out = proc.stdout
         if proc.returncode != 0:
             out += f"\n[exit code {proc.returncode}]\n{proc.stderr}"
         return _truncate(out if out.strip() else "(no output)")
 
-    return read_file, list_dir, grep, run_command
+    def write_file(path: str, content: str) -> str:
+        """Create or overwrite a text file with `content`. `path` is relative
+        to the working directory (or absolute). Parent directories are created
+        as needed. Only exposed when the harness is NOT in --read-only mode."""
+        p = confined.resolve(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+        return f"Wrote {len(content)} characters to {path}"
+
+    if read_only:
+        return [read_file, list_dir, grep]
+    return [read_file, list_dir, grep, run_command, write_file]
 
 
 OPENAI_TOOL_SCHEMAS = [
@@ -410,10 +399,10 @@ OPENAI_TOOL_SCHEMAS = [
         "function": {
             "name": "run_command",
             "description": (
-                "Run a shell command confined to the working directory. Default "
-                "read-only allowlist: git status/log/diff/show, ls, dir, type, cat, "
-                "findstr, rg. Anything else needs --allow-write. Destructive "
-                "commands are always refused."
+                "Run a shell command in the working directory. Runs exactly what "
+                "you give it, through the shell -- chaining (&&, |, ;) and "
+                "redirection (>, <) work. Use it to run tests, git, build steps, "
+                "or any tool. 120s timeout."
             ),
             "parameters": {
                 "type": "object",
@@ -422,13 +411,34 @@ OPENAI_TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": (
+                "Create or overwrite a text file with the given content. Parent "
+                "directories are created as needed. Use this to apply code fixes "
+                "and write new files."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
 ]
 
 SYSTEM_PROMPT = (
     "You are a local coding/research assistant running fully offline. Use the "
-    "provided tools (read_file, list_dir, grep, run_command) to investigate the "
-    "working directory and answer the user's task. When you have a complete "
-    "answer, reply with plain text and no further tool calls. Be concise and "
+    "provided tools to investigate the working directory and complete the "
+    "task: read_file, list_dir, and grep to read; run_command to run tests, "
+    "git, or any shell command; write_file to apply fixes and create files. "
+    "(In read-only mode only the read tools are available.) When the task is "
+    "complete, reply with plain text and no further tool calls. Be concise and "
     "factual -- if a requested file does not exist, say so plainly rather than "
     "guessing its contents."
 )
@@ -442,11 +452,11 @@ SYSTEM_PROMPT = (
 def run_sdk_loop(args, confined: ConfinedCwd) -> int:
     import lmstudio as lms
 
-    read_file, list_dir, grep, run_command = make_tools(confined, args.allow_write)
     # Give the SDK plain callables; it derives name/schema from type hints
     # and the whole docstring as description (verified via inspect.getsource
-    # of ToolFunctionDef.from_callable during development).
-    tools = [read_file, list_dir, grep, run_command]
+    # of ToolFunctionDef.from_callable during development). make_tools returns
+    # only the read tools in --read-only mode, all of them otherwise.
+    tools = make_tools(confined, args.read_only)
 
     model = lms.llm(args.model)
 
@@ -592,13 +602,10 @@ def _post_chat_completions(base_url: str, payload: dict, api_key: str = "") -> d
 
 
 def run_raw_loop(args, confined: ConfinedCwd) -> int:
-    read_file, list_dir, grep, run_command = make_tools(confined, args.allow_write)
-    impls = {
-        "read_file": read_file,
-        "list_dir": list_dir,
-        "grep": grep,
-        "run_command": run_command,
-    }
+    impls = {fn.__name__: fn for fn in make_tools(confined, args.read_only)}
+    active_schemas = [
+        s for s in OPENAI_TOOL_SCHEMAS if s["function"]["name"] in impls
+    ]
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -614,7 +621,7 @@ def run_raw_loop(args, confined: ConfinedCwd) -> int:
         payload = {
             "model": args.model,
             "messages": messages,
-            "tools": OPENAI_TOOL_SCHEMAS,
+            "tools": active_schemas,
             "tool_choice": "auto",
             "max_tokens": 2000,
         }
@@ -692,6 +699,7 @@ def run_raw_loop(args, confined: ConfinedCwd) -> int:
                 out = f"ERROR: {exc}"
             except TypeError as exc:
                 out = f"ERROR: bad arguments for {fn!r}: {exc}"
+            _audit_log(step, fn, call_args, out)
             messages.append({"role": "tool", "tool_call_id": tool_call_id, "content": out})
             last_malformed_signature = None
     else:
@@ -733,9 +741,13 @@ def parse_args(argv=None):
     ap.add_argument("--cwd", default=".", help="Working directory the tools are confined to")
     ap.add_argument("--max-steps", type=int, default=20, help="Hard cap on agent rounds")
     ap.add_argument(
-        "--allow-write",
+        "--read-only",
         action="store_true",
-        help="Widen run_command beyond the read-only allowlist (destructive commands still blocked)",
+        help=(
+            "Expose only the read tools (read_file, list_dir, grep) so the agent "
+            "cannot modify anything -- for review/analysis. Default is full "
+            "power: run_command and write_file, both unrestricted."
+        ),
     )
     ap.add_argument(
         "--base-url",
@@ -782,7 +794,7 @@ def main(argv=None) -> int:
 
     print(
         f"[local_agent] model={args.model} cwd={confined.root} max_steps={args.max_steps} "
-        f"allow_write={args.allow_write}",
+        f"mode={'read-only' if args.read_only else 'full (run_command + write_file)'}",
         file=sys.stderr,
     )
 

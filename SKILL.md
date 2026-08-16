@@ -60,9 +60,30 @@ blocker.
 
 Two axes, cost and privacy. **Cost is the one that decides most calls.**
 
+**Local is the mandatory default, not a suggestion (owner directive, 2026-08-16).**
+Start every task on a local model. This is not limited to "grunt work" — the
+local roster now includes near-frontier open-weights models (a 27B here diagnosed
+a real bug, wrote the correct fix, and independently defeated a prompt-injection
+gauntlet; see the safety-lab note in `references/local-backends.md`). Do **not**
+reach for a paid Claude/Codex/Antigravity call on a hunch that the task "feels
+hard" — that discretion is exactly the coin-flip the owner does not want to pay
+for. Escalating off local requires a **stated, positive reason**, one of:
+
+  - the local roster provably lacks a needed capability (vision it can't do, a
+    context length it can't hold, a tool it wasn't trained for — check first);
+  - the work is genuinely security-sensitive or ships unreviewed and needs a
+    review gate (see the never-route-local list below);
+  - a local attempt was made and failed your review twice (then escalate ONE
+    tier, per Discipline).
+
+Write the reason down when you escalate. "No local model was tried" is never a
+valid reason. The frontier brain's job is to **direct, plan, review, and audit**
+the fleet's output — not to do the bulk of the work itself.
+
 - **Cost, cheapest meter first:**
-  1. **Local** — free and private. Grunt work starts with the local engine
-     that exposes the largest usable model inventory.
+  1. **Local** — free, private, and the default for real work (not just grunt
+     work). Start with the local engine that exposes the largest usable model
+     inventory; drive tool-using/agentic work with `scripts/local_agent.py`.
   2. **OpenCode Zen** — free, no key. When no local model fits, this costs
      nothing, so it comes before anything metered. Its free tier includes
      models that outscore paid tiers further down this list.
@@ -209,18 +230,28 @@ commands across multiple rounds**:
 
 ```bash
 python scripts/local_agent.py --model <id> --task "..." --cwd <dir> \
-  [--max-steps N] [--allow-write] [--base-url URL] [--no-sdk]
+  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk]
 ```
 
 Its primary lane is LM Studio SDK `LLM.act()`. `--no-sdk` selects a hand-rolled
 OpenAI `/v1/chat/completions` tool loop; set `--base-url` (or
-`LOCAL_AGENT_BASE_URL`) for another compatible server. It exposes `read_file`,
-`list_dir`, `grep`, and `run_command`; confines file-tool paths to `--cwd`;
-defaults to a read-only command allowlist; permanently blocks destructive
-commands including `del` and `rm`; and stops at `--max-steps`. Each round prints
-token usage and a final `[receipt]` total on stderr. Those per-step receipts
-satisfy this skill's receipts rule. The script bootstraps its LM Studio SDK
-venv on first SDK use; the raw route is stdlib-only.
+`LOCAL_AGENT_BASE_URL`) for another compatible server. By default it exposes
+`read_file`, `list_dir`, `grep`, `run_command` (runs anything through the shell —
+real chaining and redirection), and `write_file`, so the model does the actual
+work: read, run tests, apply fixes. `--read-only` narrows it to just the three
+read tools, so an analysis/review run provably cannot modify anything. It stops
+at `--max-steps`; each round prints token usage and a final `[receipt]` total on
+stderr (those receipts satisfy this skill's receipts rule). The script bootstraps
+its LM Studio SDK venv on first SDK use; the raw route is stdlib-only.
+
+**No command nanny (owner directive, 2026-08-16).** There is no allowlist and no
+destructive-command block: the harness runs on the owner's own hardware against
+trusted local models, and a per-command guard was proven (2026-08-16 safety lab)
+to block legitimate work while adding no safety the model's own judgment did not
+already provide — an unguarded local model completed the task *and* independently
+refused a prompt-injection, a secret-exfil lure, and a booby-trapped script. Run
+untrusted work in a disposable `--cwd` copy, and set `LOCAL_AGENT_LOG=<file>` to
+keep a JSONL audit trail of every tool call for an unattended run.
 
 **Read `references/local-backends.md`** for local endpoint requirements,
 selection guidance, model capability checks, and RAM rules. Two things

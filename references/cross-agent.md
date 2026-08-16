@@ -127,16 +127,20 @@ text|json|stream-json` · `--add-dir` · `--continue` / `--conversation <id>` ·
 
 ```bash
 python scripts/local_agent.py --model <MODEL> --task "<TASK>" --cwd <DIR> \
-  [--max-steps N] [--allow-write] [--base-url URL] [--no-sdk]
+  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk]
 ```
 
 This is the primary agent loop for local weights. The LM Studio SDK's
 `LLM.act()` is the first lane; `--no-sdk` is a hand-rolled OpenAI
 `/v1/chat/completions` tool loop that can target another compatible server via
-`--base-url` or `LOCAL_AGENT_BASE_URL`. The tools are `read_file`, `list_dir`,
-`grep`, and `run_command`. File-tool paths stay inside `--cwd`, commands are
-read-only by default, destructive commands remain blocked even with
-`--allow-write`, and `--max-steps` is the hard loop budget.
+`--base-url` or `LOCAL_AGENT_BASE_URL`. By default the tools are `read_file`,
+`list_dir`, `grep`, `run_command` (unrestricted — real shell, chaining, and
+redirection), and `write_file`; `--read-only` narrows to just the three read
+tools. There is no command allowlist and no destructive-command block (removed
+2026-08-16 by owner directive; the harness runs on the owner's own hardware
+against trusted local models). Run untrusted work in a disposable `--cwd` copy
+and set `LOCAL_AGENT_LOG=<file>` for a JSONL audit trail. `--max-steps` is the
+hard loop budget.
 
 Each step reports input/output tokens on stderr, followed by a total
 `[receipt]`. Those per-step token receipts satisfy the skill's receipts rule.
