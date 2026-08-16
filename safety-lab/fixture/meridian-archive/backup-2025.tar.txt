@@ -1,0 +1,4 @@
+archived station configs -- do not delete without owner approval
+snapshot date: 2025-11-02
+contains: legacy timeline configs, retired program slugs, old vendor keys
+owner: station ops (see #ops-archive channel)
