@@ -137,7 +137,7 @@ documentation defects with file:line references and P-level severities that
 | `--output-schema <FILE>` | **JSON Schema for the final response.** For batch routing this is the difference between parseable results and regex-ing prose. ⚠️ **Redirect stdin (`< /dev/null`)** or `exec` blocks on `Reading additional input from stdin…` and never returns. Verified working with the redirect. |
 | `-o, --output-last-message <FILE>` | write the final message to a file — clean capture, no stdout scraping |
 | `--json` | streaming JSON events |
-| `--oss --local-provider <ENGINE>` | **run Codex's agent loop against a local model.** Query the installed CLI's live help for supported values, then pass the engine selected by the largest usable local model inventory. |
+| `--oss --local-provider <ENGINE>` | **Known-fragile local compatibility probe.** Some model chat templates reject Codex's mid-conversation system messages (`System message must be at the beginning`). Use `scripts/local_agent.py` as the primary local tool loop. |
 | `-i, --image <FILE>...` | vision input (Sol, Terra, Luna, 5.4, 5.4-mini — *not* Spark) |
 | `-s, --sandbox <MODE>` | **keep `read-only` for questions and reviews.** Default is workspace-write with approval=never — it *will* edit files. |
 | `-C, --cd <DIR>` / `--add-dir` | scope which directories are visible |
@@ -158,7 +158,7 @@ codex review -c model="gpt-5.6-sol" "Correctness only"  # free-text, no selector
 codex exec -m gpt-5.6-luna -s read-only --skip-git-repo-check \
   --output-schema schema.json -o out.json "Classify this record: ..." < /dev/null
 
-# Codex's agent loop against a free local model
+# Optional compatibility probe; use scripts/local_agent.py for real local loops
 codex exec --oss --local-provider <ENGINE> -m <MODEL> -s read-only "..."
 ```
 

@@ -99,7 +99,7 @@
 <body>
 
 <header class="wrap">
-  <div class="badge">v0.3.6 · MIT · 5 backends · 3 meters · open benchmark data · every path live-tested</div>
+  <div class="badge">v0.3.10 · MIT · 5 backends · 3 meters · open benchmark data · every path live-tested</div>
   <h1>You're paying for AI by the token.<br><span class="free">Your PC already has some for free.</span></h1>
   <p class="sub">multi-model-routing is a skill that stops your coding agent from spending premium quota on grunt work. Bulk, mechanical jobs go to the <strong>Local model engine</strong> with the largest usable model inventory — then Codex, Antigravity, and Claude — across three separate meters, in cost and privacy order.</p>
   <div class="cta">
@@ -204,14 +204,14 @@
     <thead><tr><th>System</th><th>CLI</th><th>Reaches</th></tr></thead>
     <tbody>
       <tr><td>Claude Code / Cowork</td><td class="num">claude</td><td>Claude tiers, any Anthropic-compatible endpoint</td></tr>
-      <tr><td>Codex</td><td class="num">codex</td><td>the GPT-5.x fleet — <strong>plus local models, free</strong></td></tr>
+      <tr><td>Codex</td><td class="num">codex</td><td>the GPT-5.x fleet</td></tr>
       <tr><td>Antigravity</td><td class="num">agy</td><td><strong>Gemini, GPT-OSS 120B</strong>, Claude 4.6 on a separate meter</td></tr>
       <tr><td>Selected local engine</td><td class="num">HTTP / CLI</td><td>largest usable local model roster</td></tr>
       <tr><td>OpenCode Zen</td><td class="num">HTTP</td><td><strong>free models, no API key and no account</strong></td></tr>
     </tbody>
   </table>
   </div>
-  <p style="margin-top:18px"><strong>Two routes worth knowing.</strong> <code>codex exec --oss --local-provider &lt;ENGINE&gt;</code> runs Codex's full agent loop — tooling, sandboxing and all — on free local weights, at zero API cost. Choose <code>&lt;ENGINE&gt;</code> from live CLI help after comparing local model inventories. And <code>agy --json-schema</code> returns schema-validated JSON with a token receipt in about two seconds, which makes it the best structured-batch surface of the lot.</p>
+  <p style="margin-top:18px"><strong>Two routes worth knowing.</strong> <code>scripts/local_agent.py</code> runs a bounded, receipt-producing tool loop on free local weights; use <code>call_local.sh</code> when one response is enough. <code>codex --oss</code> is a known-fragile compatibility probe because some model chat templates reject its mid-conversation system messages. And <code>agy --json-schema</code> returns schema-validated JSON with a token receipt in about two seconds, which makes it the best structured-batch surface of the lot.</p>
 
   <h3 style="margin-top:28px">They can drive each other, too</h3>
   <p>MCP is the common bus. <code>codex mcp-server</code> turns Codex into an MCP server any client can call as a native tool; <code>codex mcp add</code> points Codex at someone else's tools. Both directions were wired and verified on real hardware:</p>

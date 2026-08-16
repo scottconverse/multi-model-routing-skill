@@ -4,7 +4,7 @@
 [Manual](./docs/MANUAL.md) · [SKILL.md](./SKILL.md) ·
 [Changelog](./CHANGELOG.md)**
 
-**Version: v0.3.6**
+**Version: v0.3.11**
 
 A [Claude Code](https://claude.com/claude-code) / Claude Cowork / Antigravity
 skill that routes batch and mechanical work across whatever model backends are
@@ -26,6 +26,9 @@ For local work, the **Local model engine** tier discovers the engines available
 on the machine,
 counts their reachable models, and uses the engine with the largest usable
 local model inventory. It does not assume a particular engine or provider.
+One-shot prompts use `scripts/call_local.sh`; tool-using, bounded local agent
+loops use `scripts/local_agent.py`, with per-step token receipts from both
+execution routes.
 
 Only local engines keep data on your machine. Everything else is
 somebody's cloud — including Claude — so the skill picks on **cost** and tells
@@ -175,6 +178,8 @@ SKILL.md                    the skill itself — read this first
 scripts/call_local.sh       calls a compatible local-engine endpoint, with
                              Anthropic/OpenAI dialect fallback and a stderr
                              "receipt" line for evidence
+scripts/local_agent.py      bounded tool-using local agent loop: LM Studio
+                             SDK primary, OpenAI-compatible raw fallback
 references/codex.md         Codex: model selection BY CAPABILITY (not by
                              asking the user), the full CLI surface, and two
                              cost traps that reverse the obvious choice
@@ -195,6 +200,8 @@ references/local-notes.example.md
 tests/test_call_local.py    offline smoke test for call_local.sh (spins up
                              mock HTTP servers; no real local engine needed) —
                              run with `python3 tests/test_call_local.py`
+tests/test_local_agent.py   offline two-round tool-loop, receipt, UTF-8, and
+                             safety-boundary tests for local_agent.py
 docs/MANUAL.md              the user manual — install, routing rule, every
                              backend, troubleshooting, honest limits, FAQ
 docs/index.html             the landing page, published via GitHub Pages

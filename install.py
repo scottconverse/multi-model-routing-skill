@@ -35,9 +35,11 @@ PAYLOAD = [
     "agents/openai.yaml",              # Codex metadata; harmless in the others
     "docs/MANUAL.md",                  # the human doc belongs WITH the install
     "scripts/call_local.sh",
+    "scripts/local_agent.py",
     "scripts/benchmarks.sh",
     "scripts/codex_models.sh",
     "tests/test_call_local.py",        # lets a user verify their own install
+    "tests/test_local_agent.py",
     "tests/test_install.py",
     "tests/test_benchmarks.py",
     "tests/test_codex_models.py",
@@ -61,6 +63,7 @@ NOT_SHIPPED = [
     "CONTRIBUTING.md",                 # for contributors, not users
     "docs/DISCUSSIONS_SEED.md",        # GitHub Discussions material
     "docs/audits/",                    # records of review, however many
+    "safety-lab/",                     # the harness trap-gauntlet; repo tooling, not skill
     "docs/plans/",                     # planning history, not skill behaviour
     "docs/index.html",                 # the landing page, published via Pages
     "docs/.nojekyll",                  # Pages build hint

@@ -123,29 +123,55 @@ text|json|stream-json` · `--add-dir` · `--continue` / `--conversation <id>` ·
 
 ---
 
-## 3. Codex driving local models — free, with one hard constraint
+## 3. Local tool-using agents — use the bundled harness
+
+```bash
+python scripts/local_agent.py --model <MODEL> --task "<TASK>" --cwd <DIR> \
+  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk]
+```
+
+This is the primary agent loop for local weights. The LM Studio SDK's
+`LLM.act()` is the first lane; `--no-sdk` is a hand-rolled OpenAI
+`/v1/chat/completions` tool loop that can target another compatible server via
+`--base-url` or `LOCAL_AGENT_BASE_URL`. By default the tools are `read_file`,
+`list_dir`, `grep`, `run_command` (unrestricted — real shell, chaining, and
+redirection), and `write_file`; `--read-only` narrows to just the three read
+tools. There is no command allowlist and no destructive-command block (removed
+2026-08-16 by owner directive; the harness runs on the owner's own hardware
+against trusted local models). Run untrusted work in a disposable `--cwd` copy
+and set `LOCAL_AGENT_LOG=<file>` for a JSONL audit trail. `--max-steps` is the
+hard loop budget.
+
+Each step reports input/output tokens on stderr, followed by a total
+`[receipt]`. Those per-step token receipts satisfy the skill's receipts rule.
+Keep local concurrency to one loop per server unless that server has been
+tested under parallel load.
+
+### Why `codex --oss` is no longer the primary loop
+
+Codex still exposes this route:
 
 ```bash
 codex exec --oss --local-provider <ENGINE> -m <MODEL> -s read-only \
   --skip-git-repo-check --ephemeral "task"
 ```
 
-*Verified: returned `CODEX-OSS-OK`, 9,479 tokens, 2 m 11 s, **zero API cost**.*
+It has worked with some version/model combinations, but it is
+**known-fragile**. Verified 2026-08-15 against LM Studio and a Qwen model:
+Codex's message layout placed a system message after the conversation began,
+the model's Jinja chat template rejected it with `System message must be at
+the beginning`, and the agent loop never ran. This is a compatibility trap,
+not a task failure and not something repeated retries fix.
 
-This gives you Codex's agent loop, tooling and sandboxing running on free local
-weights. Query the installed CLI's live help for accepted
-`--local-provider` values and pass the engine selected by the local inventory
-rule.
-
-**The constraint: the local model MUST support thinking.**
+Other combinations can also reject a model that lacks a capability Codex
+expects, for example:
 
 ```
 ERROR: "qwen2.5:7b" does not support thinking
 ```
 
-`qwen2.5:7b` fails. `gemma4:e4b` works. Check capabilities before routing —
-Use the selected engine's live model metadata to verify the required
-capabilities, including `thinking` when the agent loop requires it.
+Treat `codex --oss` as an optional compatibility probe after Codex, server, or
+chat-template changes. Use `local_agent.py` for real local tool-loop work.
 
 **Two harmless warnings you can ignore:**
 - `failed to refresh available models: missing field 'models'` — Codex expects
@@ -162,7 +188,7 @@ Keep these apart — they get conflated constantly.
 
 | | Works? |
 |---|---|
-| Claude **calls** a local model (`scripts/call_local.sh`) | ✅ **Yes — this is the skill's core path.** Proven repeatedly with receipts: real classifications, real prose tasks, both backends. |
+| Claude **calls** a local model (`scripts/call_local.sh` one-shot or `scripts/local_agent.py` tool loop) | ✅ **Yes — this is the skill's core path.** Both lanes produce token receipts. |
 | Claude Code **runs on** a local model (`ANTHROPIC_BASE_URL`) — replacing its own inference backend | ❌ No, in practice |
 
 Everything below concerns only the second row. Documented so nobody re-derives
@@ -188,9 +214,10 @@ What testing established on 2026-08-08:
   cold** on an 8B model (3.1 s warm, once prompt-cached). Claude Code's real
   system prompt with tool schemas is larger, and it makes 4+ calls per turn.
 
-**Use `scripts/call_local.sh` instead** for local work — you control the prompt
-size, so you don't pay a 40-second tax per call. Revisit this only with a much
-faster local model or far smaller system prompt.
+**Use `scripts/call_local.sh` instead** for one-shot local work, or
+`scripts/local_agent.py` when the task needs tools. You control the prompt and
+loop budget in both cases. Revisit inference-backend replacement only with a
+much faster local model or far smaller system prompt.
 
 ---
 
@@ -338,8 +365,8 @@ present on the next machine it was read on.
 | Need | Go to | Why |
 |---|---|---|
 | Fastest structured batch item | **`agy` + `--json-schema`** | 2–4 s, schema-validated, receipts included |
-| Free bulk work | **local via `call_local.sh`** | no quota at all |
-| Free *agentic* work | **`codex --oss`** | agent loop on local weights — needs a thinking-capable model |
+| Free bulk work | **local via `call_local.sh`** | one-shot path, no quota at all |
+| Free *agentic* work | **local via `local_agent.py`** | bounded tool loop with per-step receipts |
 | Gemini, or GPT-OSS 120B | **`agy`** | only local route to them |
 | Claude on a different meter | **`agy --model claude-opus-4-6-thinking`** | separate billing from your Claude quota |
 | Serious code review | **`codex review -m gpt-5.6-sol`** | see [codex.md](./codex.md) |

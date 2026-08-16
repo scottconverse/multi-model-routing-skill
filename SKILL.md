@@ -28,7 +28,8 @@ Claude:
    advertised, 8+ of them free-tier. Costs nothing on any meter, which is why
    it sits above Codex.
 3. **Codex CLI** — OpenAI models, billed to the owner's ChatGPT account.
-   Also runs its agent loop on *local* models for free (`--oss`).
+   Its `--oss` local-model route is known-fragile; use the bundled local agent
+   harness for local tool loops.
 4. **Antigravity** (`agy`) — reaches multiple Gemini tiers, Claude on a
    separate meter, and free GPT-OSS 120B. `agy models` is live and
    authoritative; don't trust a remembered list, including this one — see
@@ -59,9 +60,30 @@ blocker.
 
 Two axes, cost and privacy. **Cost is the one that decides most calls.**
 
+**Local is the mandatory default, not a suggestion (owner directive, 2026-08-16).**
+Start every task on a local model. This is not limited to "grunt work" — the
+local roster now includes near-frontier open-weights models (a 27B here diagnosed
+a real bug, wrote the correct fix, and independently defeated a prompt-injection
+gauntlet; see the safety-lab note in `references/local-backends.md`). Do **not**
+reach for a paid Claude/Codex/Antigravity call on a hunch that the task "feels
+hard" — that discretion is exactly the coin-flip the owner does not want to pay
+for. Escalating off local requires a **stated, positive reason**, one of:
+
+  - the local roster provably lacks a needed capability (vision it can't do, a
+    context length it can't hold, a tool it wasn't trained for — check first);
+  - the work is genuinely security-sensitive or ships unreviewed and needs a
+    review gate (see the never-route-local list below);
+  - a local attempt was made and failed your review twice (then escalate ONE
+    tier, per Discipline).
+
+Write the reason down when you escalate. "No local model was tried" is never a
+valid reason. The frontier brain's job is to **direct, plan, review, and audit**
+the fleet's output — not to do the bulk of the work itself.
+
 - **Cost, cheapest meter first:**
-  1. **Local** — free and private. Grunt work starts with the local engine
-     that exposes the largest usable model inventory.
+  1. **Local** — free, private, and the default for real work (not just grunt
+     work). Start with the local engine that exposes the largest usable model
+     inventory; drive tool-using/agentic work with `scripts/local_agent.py`.
   2. **OpenCode Zen** — free, no key. When no local model fits, this costs
      nothing, so it comes before anything metered. Its free tier includes
      models that outscore paid tiers further down this list.
@@ -187,13 +209,49 @@ working with whatever IS available.
 
 ## How to call each backend
 
-### Local model engine — use the bundled script when compatible
+### Local model engine — choose the one-shot or agent-loop lane
 
-`scripts/call_local.sh <base-url> <model> <prompt> [max_tokens]` sends an
+Use `scripts/call_local.sh` for a **one-shot prompt**: classification,
+summarization, extraction, or another job where the model needs no tools and no
+follow-up round. It is the cheaper, simpler lane:
+
+```bash
+scripts/call_local.sh <base-url> <model> <prompt> [max_tokens]
+```
+
+It sends an
 Anthropic-format request to `<base-url>/v1/messages` and automatically falls
 back to OpenAI-format `/v1/chat/completions` if that 404s (older builds).
 It prints the reply on stdout and a `[receipt]` token-usage line on stderr —
 keep that receipt; it backs any claim that the backend did work.
+
+Use `scripts/local_agent.py` when the model must **inspect files, search, or run
+commands across multiple rounds**:
+
+```bash
+python scripts/local_agent.py --model <id> --task "..." --cwd <dir> \
+  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk]
+```
+
+Its primary lane is LM Studio SDK `LLM.act()`. `--no-sdk` selects a hand-rolled
+OpenAI `/v1/chat/completions` tool loop; set `--base-url` (or
+`LOCAL_AGENT_BASE_URL`) for another compatible server. By default it exposes
+`read_file`, `list_dir`, `grep`, `run_command` (runs anything through the shell —
+real chaining and redirection), and `write_file`, so the model does the actual
+work: read, run tests, apply fixes. `--read-only` narrows it to just the three
+read tools, so an analysis/review run provably cannot modify anything. It stops
+at `--max-steps`; each round prints token usage and a final `[receipt]` total on
+stderr (those receipts satisfy this skill's receipts rule). The script bootstraps
+its LM Studio SDK venv on first SDK use; the raw route is stdlib-only.
+
+**No command nanny (owner directive, 2026-08-16).** There is no allowlist and no
+destructive-command block: the harness runs on the owner's own hardware against
+trusted local models, and a per-command guard was proven (2026-08-16 safety lab)
+to block legitimate work while adding no safety the model's own judgment did not
+already provide — an unguarded local model completed the task *and* independently
+refused a prompt-injection, a secret-exfil lure, and a booby-trapped script. Run
+untrusted work in a disposable `--cwd` copy, and set `LOCAL_AGENT_LOG=<file>` to
+keep a JSONL audit trail of every tool call for an unattended run.
 
 **Read `references/local-backends.md`** for local endpoint requirements,
 selection guidance, model capability checks, and RAM rules. Two things
@@ -274,10 +332,12 @@ discovery rules, and the rest of the CLI surface.
   a review prompt through `exec`.
 - **`--output-schema <FILE>`** gives schema-validated JSON instead of prose to
   parse. Use it for batch work.
-- **`--oss --local-provider <ENGINE>`** runs Codex's own agent loop against a
-  local model — Codex's tooling and sandboxing at zero API cost. Query the
-  installed CLI's live help for supported provider values, then pass the
-  engine selected by the model-inventory rule above.
+- **`--oss --local-provider <ENGINE>` is a known-fragile local path, not the
+  primary local loop.** Codex can insert system messages after conversation
+  start; models whose chat templates require the system message first fail
+  with errors such as `System message must be at the beginning`. Use
+  `scripts/local_agent.py` for local tool loops. Re-test `codex --oss` only as
+  a compatibility probe after Codex, server, or chat-template changes.
 - **Keep `-s read-only` for questions and reviews.** The default is
   workspace-write with approval=never — it WILL edit files without asking.
 - Multi-turn: `codex exec resume --last "follow-up"`.
@@ -342,7 +402,8 @@ costs nothing and keeps premium tokens for the work itself rather than the
 dispatch. Review its split before acting on it, same as any local output.
 
 **You drive local models constantly — that's this whole skill.** Use
-`scripts/call_local.sh`. It works, it's fast, and it produces receipts.
+`scripts/call_local.sh` for one-shot work and `scripts/local_agent.py` when the
+model needs tools and a bounded loop. Both produce receipts.
 
 The one thing that does NOT work is *replacing your own inference backend* with
 a local server — running Claude Code itself on local weights via

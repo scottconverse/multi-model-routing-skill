@@ -1,6 +1,6 @@
 # multi-model-routing — Manual
 
-**Version: v0.3.6**
+**Version: v0.3.11**
 
 A skill that teaches a coding agent to send bulk, mechanical work to the
 cheapest backend that can actually do it — the free LLMs already on your
@@ -11,7 +11,7 @@ reserved for work that needs it.
 
 ## 1. What it is (and isn't)
 
-**It is** a markdown instruction file (`SKILL.md`) plus one small bash script.
+**It is** a markdown instruction file (`SKILL.md`) plus small helper scripts.
 Your agent reads the file and changes how it dispatches work. There is no
 daemon, no background process, no account to create, and nothing to configure
 beyond one optional notes file.
@@ -222,25 +222,32 @@ tokens for the work rather than the dispatch. Review the split before acting on
 it, same as any local output.
 
 **Calling local models works. Running *on* one doesn't.** Your agent calling a
-local model via `call_local.sh` is this skill's core path — proven, fast, with
-receipts. What fails is replacing Claude Code's *own inference backend* with a
+local model via `call_local.sh` for a one-shot or `local_agent.py` for a tool
+loop is this skill's core path — proven, bounded, and backed by receipts. What
+fails is replacing Claude Code's *own inference backend* with a
 local server (`ANTHROPIC_BASE_URL`): protocol-compatible, but a large system
 prompt costs ~42 s of prompt processing per call on a small local model and
 Claude Code makes several calls per turn. Tested twice; never completed in
 5 minutes. Calling local models, yes. Being one, no.
 
-### Codex running on your local models (free)
+### Tool-using agent loops on local models (free)
 
 ```bash
-codex exec --oss --local-provider <ENGINE> -m <MODEL> -s read-only \
-  --skip-git-repo-check "task"
+python scripts/local_agent.py --model <MODEL> --task "<TASK>" --cwd <DIR> \
+  [--max-steps N] [--allow-write] [--base-url URL] [--no-sdk]
 ```
 
-Codex's agent loop, tooling and sandbox on free local weights — verified at
-zero API cost. Query the installed CLI's live help for supported provider
-values and pass the engine selected by the model-inventory rule. Verify that
-the selected model supports the capabilities required by this path in the
-engine's live model metadata before routing here.
+The primary lane uses LM Studio SDK `LLM.act()`; `--no-sdk` uses a raw OpenAI
+chat-completions tool loop and can target another compatible server. The loop
+offers file reading, directory listing, grep, and a command tool; confines
+file-tool paths to `--cwd`; defaults commands to a read-only allowlist; blocks
+destructive commands even with `--allow-write`; and stops at `--max-steps`.
+Every step prints token usage, with a final `[receipt]` total.
+
+`codex --oss --local-provider ...` is known-fragile rather than the primary
+lane: Codex may place system messages mid-conversation, and chat templates that
+require the system message first fail with `System message must be at the
+beginning` before the loop can run.
 
 ### Agents driving each other (MCP)
 
@@ -285,7 +292,9 @@ Never assume a tool is present just because another agent has it.
 
 ---
 
-## 5. Calling a local model by hand
+## 5. Calling a local model: two lanes
+
+Use `call_local.sh` when one response is enough:
 
 ```bash
 scripts/call_local.sh <base-url> <model> <prompt|-|file:PATH> [max_tokens]
@@ -321,6 +330,21 @@ serve that endpoint (404, 405 or 501). The reply goes to stdout; a
 
 **Keep the receipt.** It's the evidence that a backend actually did the work.
 Any claim the agent makes about offloading should be backed by one.
+
+Use `local_agent.py` when the task needs tools and follow-up rounds:
+
+```bash
+python scripts/local_agent.py --model <MODEL> --task "<TASK>" --cwd <DIR> \
+  --max-steps 20
+```
+
+The raw route defaults to `http://localhost:1234`; override it with
+`--base-url` or `LOCAL_AGENT_BASE_URL`, and add `--no-sdk` to explicitly skip
+the LM Studio SDK. If a compatible endpoint requires authentication, prefer
+`LOCAL_AGENT_API_KEY` to the `--api-key` flag so the token does not enter shell
+history. The SDK venv under `scripts/.venv-local-agent` bootstraps itself on
+first use. Per-step token lines and the final receipt satisfy the same evidence
+rule as `call_local.sh`.
 
 ### Exit codes
 
@@ -547,8 +571,9 @@ gets reviewed.
 
 ## 11. Honest limits
 
-**It does not enforce "local."** `call_local.sh` posts to whatever base URL you
-give it. The name says local; nothing in the code makes it so. Point it at a
+**It does not enforce "local."** `call_local.sh` and the raw
+`local_agent.py` route post to whatever base URL you give them. The names say
+local; nothing in the code makes a remote endpoint private. Point either at a
 remote host and your prompt goes to that host. Keeping private material on
 localhost is the caller's job — the skill states this plainly rather than
 implying a guarantee it can't keep.
