@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>multi-repo-product-delivery — workflow</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #fbfbfa; --panel: #ffffff; --ink: #1c1b1a; --muted: #6b6866;
+    --line: #e6e3e0; --accent: #7c5cff;
+    --code: #1d4ed8; --code-bg: #dbeafe;
+    --agent: #6d28d9; --agent-bg: #ede9fe;
+    --human: #b45309; --human-bg: #fef3c7;
+    --warn: #b91c1c; --warn-bg: #fee2e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17161a; --panel: #201f24; --ink: #eceaf0; --muted: #9c98a6;
+      --line: #322f39; --accent: #a78bfa;
+      --code: #93c5fd; --code-bg: #1e3a5f;
+      --agent: #c4b5fd; --agent-bg: #3b2d63;
+      --human: #fcd34d; --human-bg: #4a3410;
+      --warn: #fca5a5; --warn-bg: #4a1d1d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 32px; }
+  h1 { font-size: 32px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .goal { font-size: 18px; color: var(--ink); margin: 0 0 18px; max-width: 68ch; }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fact {
+    font-size: 13px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 12px; color: var(--muted);
+  }
+  .fact b { color: var(--ink); font-weight: 600; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em;
+       color: var(--muted); margin: 40px 0 14px; font-weight: 600; }
+  .panel { background: var(--panel); border: 1px solid var(--line);
+           border-radius: 14px; padding: 22px; }
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; font-size: 13px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+  .swatch { width: 13px; height: 13px; border-radius: 4px; display: inline-block; }
+  /* The diagram keeps a light card in both colour schemes: the SVG is drawn once at
+     generation time with a single theme, and a fixed light backing means it stays
+     legible rather than turning into dark-on-dark. */
+  .diagram { text-align: center; overflow-x: auto; background: #ffffff;
+             border-radius: 10px; padding: 18px 12px; }
+  .diagram svg { max-width: 100%; height: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase;
+       letter-spacing: 0.06em; color: var(--muted); font-weight: 600;
+       padding: 0 12px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 13px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 3px 9px;
+          border-radius: 6px; letter-spacing: 0.02em; white-space: nowrap; }
+  .k-code  { background: var(--code-bg);  color: var(--code); }
+  .k-agent { background: var(--agent-bg); color: var(--agent); }
+  .k-human { background: var(--human-bg); color: var(--human); }
+  .muted { color: var(--muted); }
+  .loop { color: var(--accent); font-weight: 600; }
+  .problems { background: var(--warn-bg); border-color: var(--warn); }
+  .problems li { margin-bottom: 8px; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin-bottom: 7px; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line);
+           font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>multi-repo-product-delivery</h1>
+    <p class="goal">Turn an owner-approved product outcome into an independently verified, artifact-bound multi-repository disposition and a provenance-linked learning record</p>
+    <div class="facts">
+      <span class="fact"><b>Trigger</b> · Scott approves a new product contract or explicitly resumes an existing DevHarmonics run</span>
+      <span class="fact"><b>Isolation</b> · sandbox</span>
+      <span class="fact"><b>Nodes</b> · 14 code, 7 agent, 2 human</span>
+    </div>
+  </header>
+
+  
+
+  <h2>Diagram</h2>
+  <div class="panel">
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--code-bg);border:1px solid var(--code)"></i> Code — deterministic, free, same every time</span>
+      <span><i class="swatch" style="background:var(--agent-bg);border:1px solid var(--agent)"></i> Agent — judgment, costs tokens, varies</span>
+      <span><i class="swatch" style="background:var(--human-bg);border:1px solid var(--human)"></i> Human — scarce, highest judgment</span>
+    </div>
+    <div class="diagram"><div class="mermaid">flowchart TD
+    intake{{&quot;Approve the product contract&quot;}}
+    preflight[&quot;Prove runtime and executable health&lt;br/&gt;max 2 attempts&lt;br/&gt;proves: preflight-report.json&quot;]
+    snapshot[&quot;Lock source, runtime, and environment&lt;br/&gt;max 2 attempts&lt;br/&gt;proves: workspace-lock.json&quot;]
+    load_governance[&quot;Lock the project's real process&lt;br/&gt;max 2 attempts&lt;br/&gt;proves: governance-contract.json&quot;]
+    recall[&quot;Retrieve relevant prior outcomes&quot;]
+    scout(&quot;Map product and repository behavior&lt;br/&gt;devharmonics/capable&lt;br/&gt;max 2 attempts&lt;br/&gt;proves: scout-report.json&quot;)
+    plan(&quot;Design the delivery plan&lt;br/&gt;devharmonics/capable&lt;br/&gt;max 3 attempts&lt;br/&gt;proves: delivery-plan.json&quot;)
+    plan_review(&quot;Cold-review plan completeness&lt;br/&gt;devharmonics/audit&lt;br/&gt;max 4 attempts&lt;br/&gt;proves: plan-review.json&quot;)
+    compile_graph[&quot;Compile the bounded execution graph&lt;br/&gt;max 3 attempts&lt;br/&gt;proves: work-package-dag.json&quot;]
+    build_swarm(&quot;Execute visible work-package swarms&lt;br/&gt;devharmonics/build&lt;br/&gt;max 4 attempts&lt;br/&gt;proves: work-package-results.json&quot;)
+    repo_verify[&quot;Verify repository candidates&lt;br/&gt;max 8 attempts&lt;br/&gt;proves: repo-verification.json&quot;]
+    assemble[&quot;Prepare and commit an integration set&lt;br/&gt;max 6 attempts&lt;br/&gt;proves: integration-receipt.json&quot;]
+    integration_repair(&quot;Repair proven product or integration defects&lt;br/&gt;devharmonics/capable&lt;br/&gt;max 4 attempts&lt;br/&gt;proves: integration-repair.json&quot;)
+    cross_repo_verify[&quot;Verify integrated cross-repository behavior&lt;br/&gt;max 6 attempts&lt;br/&gt;proves: cross-repo-verification.json&quot;]
+    artifact_build[&quot;Build the exact release candidate&lt;br/&gt;max 3 attempts&lt;br/&gt;proves: artifact-manifest.json&quot;]
+    artifact_verify[&quot;Verify the artifact rather than the tree&lt;br/&gt;max 5 attempts&lt;br/&gt;proves: artifact-verification.json&quot;]
+    product_journey(&quot;Exercise the approved product journey&lt;br/&gt;devharmonics/audit&lt;br/&gt;max 3 attempts&lt;br/&gt;proves: product-journey.json&quot;)
+    audit(&quot;Independently audit the acceptance packet&lt;br/&gt;devharmonics/audit&lt;br/&gt;max 4 attempts&lt;br/&gt;proves: acceptance-packet.json&quot;)
+    accept{{&quot;Accept, hold, or reject the product&quot;}}
+    publish[&quot;Apply the exact authorized disposition&lt;br/&gt;max 2 attempts&lt;br/&gt;proves: publication-receipt.json&quot;]
+    record_learning[&quot;Record outcome-linked learning&lt;br/&gt;proves: learning-receipt.json&quot;]
+    rejected[&quot;Close with a rejection package&quot;]
+    complete[&quot;Close the durable run&quot;]
+
+    intake -- &quot;pass: product-contract.json&quot; --&gt; preflight
+    intake -- &quot;fail: intake.decision.json&quot; --&gt; rejected
+    preflight -- &quot;pass: preflight-report.json&quot; --&gt; snapshot
+    preflight -. &quot;fail: preflight-report.json&quot; .-&gt; preflight
+    snapshot -- &quot;pass: workspace-lock.json&quot; --&gt; load_governance
+    snapshot -. &quot;fail: workspace-lock.json&quot; .-&gt; snapshot
+    load_governance -- &quot;pass: governance-contract.json&quot; --&gt; recall
+    load_governance -. &quot;fail: governance-contract.json&quot; .-&gt; load_governance
+    recall -- &quot;prior-outcomes.json&quot; --&gt; scout
+    scout -- &quot;pass: scout-report.json&quot; --&gt; plan
+    scout -. &quot;fail: scout-report.json&quot; .-&gt; scout
+    plan -- &quot;pass: delivery-plan.json&quot; --&gt; plan_review
+    plan -. &quot;fail: delivery-plan.json&quot; .-&gt; plan
+    plan_review -- &quot;pass: plan-review.json&quot; --&gt; compile_graph
+    plan_review -. &quot;fail: plan-review.json&quot; .-&gt; plan
+    compile_graph -- &quot;pass: work-package-dag.json&quot; --&gt; build_swarm
+    compile_graph -. &quot;fail: work-package-dag.json&quot; .-&gt; plan
+    build_swarm -- &quot;pass: candidate-lock.json&quot; --&gt; repo_verify
+    build_swarm -. &quot;fail: work-package-results.json&quot; .-&gt; build_swarm
+    repo_verify -- &quot;pass: repo-verification.json&quot; --&gt; assemble
+    repo_verify -. &quot;fail: repo-verification.json&quot; .-&gt; build_swarm
+    assemble -- &quot;pass: integration-receipt.json&quot; --&gt; cross_repo_verify
+    assemble -- &quot;fail: integration-receipt.json&quot; --&gt; integration_repair
+    integration_repair -. &quot;pass: candidate-lock.json&quot; .-&gt; repo_verify
+    integration_repair -. &quot;fail: integration-repair.json&quot; .-&gt; integration_repair
+    cross_repo_verify -- &quot;pass: cross-repo-verification.json&quot; --&gt; artifact_build
+    cross_repo_verify -. &quot;fail: cross-repo-verification.json&quot; .-&gt; integration_repair
+    artifact_build -- &quot;pass: artifact-manifest.json&quot; --&gt; artifact_verify
+    artifact_build -. &quot;fail: artifact-manifest.json&quot; .-&gt; artifact_build
+    artifact_verify -- &quot;pass: artifact-verification.json&quot; --&gt; product_journey
+    artifact_verify -. &quot;fail: artifact-verification.json&quot; .-&gt; integration_repair
+    product_journey -- &quot;pass: product-journey.json&quot; --&gt; audit
+    product_journey -. &quot;fail: product-journey.json&quot; .-&gt; integration_repair
+    audit -- &quot;pass: acceptance-packet.json&quot; --&gt; accept
+    audit -. &quot;fail: acceptance-audit.json&quot; .-&gt; integration_repair
+    accept -- &quot;pass: acceptance.decision.json&quot; --&gt; publish
+    accept -- &quot;fail: acceptance.decision.json&quot; --&gt; rejected
+    publish -- &quot;pass: publication-receipt.json&quot; --&gt; record_learning
+    publish -. &quot;fail: publication-receipt.json&quot; .-&gt; publish
+    record_learning -- &quot;pass: learning-receipt.json&quot; --&gt; complete
+    record_learning -- &quot;fail: publication-receipt.json&quot; --&gt; complete
+    rejected -- &quot;rejection-summary.json&quot; --&gt; complete
+
+    classDef code fill:#dbeafe,stroke:#1d4ed8,stroke-width:1px,color:#0b2a6b;
+    classDef agent fill:#ede9fe,stroke:#6d28d9,stroke-width:1px,color:#3b0764;
+    classDef human fill:#fef3c7,stroke:#b45309,stroke-width:1px,color:#4a2606;
+    class preflight,snapshot,load_governance,recall,compile_graph,repo_verify,assemble,cross_repo_verify,artifact_build,artifact_verify,publish,record_learning,rejected,complete code;
+    class scout,plan,plan_review,build_swarm,integration_repair,product_journey,audit agent;
+    class intake,accept human;
+</div></div>
+  </div>
+
+  <h2>Nodes</h2>
+  <div class="panel"><table>
+    <thead><tr><th>Node</th><th>Who</th><th>What it does</th><th>Model</th><th>Retries</th></tr></thead>
+    <tbody><tr><td><code>intake</code><br><span class='muted'>Approve the product contract</span></td><td><span class='pill k-human'>Human</span></td><td>Confirm the wanted product outcome, approved user journeys, exclusions, project/repositories, privacy and account policy, proof boundaries, and exact owner-only actions before any source is modified.</td><td><code>&mdash;</code></td><td><span class="muted">&mdash;</span></td></tr><tr><td><code>preflight</code><br><span class='muted'>Prove runtime and executable health</span></td><td><span class='pill k-code'>Code</span></td><td>Run the DevHarmonics doctor and hardened admission checks: verify the ledger/runtime, WorkflowWright compiler, Ruflo and Switchyard adapters, executor identities, model endpoints, credentials, ports, storage, local memory headroom, and project commands; refuse unpinned or substituted privileged executables.</td><td><code>&mdash;</code></td><td>2, then human</td></tr><tr><td><code>snapshot</code><br><span class='muted'>Lock source, runtime, and environment</span></td><td><span class='pill k-code'>Code</span></td><td>Resolve every participating repository and dependency, record exact SHAs and dirty state, allocate the isolated multi-repository workspace, reserve exclusive resources, and lock runtime, adapter, route, model-inventory, executable, and environment identities.</td><td><code>&mdash;</code></td><td>2, then human</td></tr><tr><td><code>load_governance</code><br><span class='muted'>Lock the project's real process</span></td><td><span class='pill k-code'>Code</span></td><td>Discover, hash, and validate the project-declared governance sources, required skills and workflows, acceptance journeys, release rules, and proof boundaries. Refuse to substitute a newly invented audit or harness without an explicit decision.</td><td><code>&mdash;</code></td><td>2, then human</td></tr><tr><td><code>recall</code><br><span class='muted'>Retrieve relevant prior outcomes</span></td><td><span class='pill k-code'>Code</span></td><td>Query the exact DevHarmonics ledger and its Ruflo memory projection for accepted patterns, rejected approaches, related findings, and route outcomes. Recall is advisory and fails open with an explicit empty or unavailable status.</td><td><code>&mdash;</code></td><td><span class="muted">&mdash;</span></td></tr><tr><td><code>scout</code><br><span class='muted'>Map product and repository behavior</span></td><td><span class='pill k-agent'>Agent</span></td><td>Use a Ruflo-coordinated, read-only scout group to map user behavior, repository responsibilities, dependencies, contracts, tests, artifact paths, governance obligations, prior failures, and unknowns. The DevHarmonics runtime records every child and permits no source writes.</td><td><code>devharmonics/capable</code></td><td>2, then human</td></tr><tr><td><code>plan</code><br><span class='muted'>Design the delivery plan</span></td><td><span class='pill k-agent'>Agent</span></td><td>Produce an ordered multi-repository plan with product scenarios, contract changes, work packages, dependencies, write/resource scopes, executor capabilities, verification profiles, artifact bindings, rollback, and explicit unresolved owner decisions. On repair, address the cold review instead of replacing the contract.</td><td><code>devharmonics/capable</code></td><td>3, then human</td></tr><tr><td><code>plan_review</code><br><span class='muted'>Cold-review plan completeness</span></td><td><span class='pill k-agent'>Agent</span></td><td>In a fresh read-only session with no producer framing, challenge the plan against the original product contract, locked governance, repository graph, historical failure shapes, source/artifact boundaries, unsafe concurrency, and unverifiable acceptance criteria.</td><td><code>devharmonics/audit</code></td><td>4, then human</td></tr><tr><td><code>compile_graph</code><br><span class='muted'>Compile the bounded execution graph</span></td><td><span class='pill k-code'>Code</span></td><td>Run WorkflowWright structural validation, then compile the accepted lifecycle and delivery plan into an immutable DevHarmonics workflow revision and dependency DAG with typed inputs/outputs, dynamic child templates, leases, checks, retry/escalation policy, budgets, and causal invalidation rules. WorkflowWright does not start a competing scheduler.</td><td><code>&mdash;</code></td><td>3, then human</td></tr><tr><td><code>build_swarm</code><br><span class='muted'>Execute visible work-package swarms</span></td><td><span class='pill k-agent'>Agent</span></td><td>DevHarmonics expands the ready DAG frontier into ledger-visible child work packages and asks Ruflo to coordinate the selected executors. Run independent scopes concurrently, enforce leases and model-resource limits, propagate accepted contract changes, and resume the responsible producer with exact verifier feedback on repair.</td><td><code>devharmonics/build</code></td><td>4, then human</td></tr><tr><td><code>repo_verify</code><br><span class='muted'>Verify repository candidates</span></td><td><span class='pill k-code'>Code</span></td><td>Run focused, regression, lint, type, policy, mutation where configured, and clean-process test profiles through the hardened DevHarmonics verifier against exact candidate SHAs. Invalidate stale dependents and emit normalized, producer-addressable failures.</td><td><code>&mdash;</code></td><td>8, then human</td></tr><tr><td><code>assemble</code><br><span class='muted'>Prepare and commit an integration set</span></td><td><span class='pill k-code'>Code</span></td><td>Use the hardened two-phase DevHarmonics integration-set protocol to prepare one workspace from verified exact SHAs, resolve dependency order, generate shared contracts, run preparation gates, then atomically commit the integration lock without merging or publishing.</td><td><code>&mdash;</code></td><td>6, then human</td></tr><tr><td><code>integration_repair</code><br><span class='muted'>Repair proven product or integration defects</span></td><td><span class='pill k-agent'>Agent</span></td><td>Resume the responsible integration/producer sessions and repair only concrete assembly, cross-repository, artifact, product-journey, or audit findings. Update affected candidate SHAs and invalidations; do not reinterpret the approved product contract or weaken a gate.</td><td><code>devharmonics/capable</code></td><td>4, then human</td></tr><tr><td><code>cross_repo_verify</code><br><span class='muted'>Verify integrated cross-repository behavior</span></td><td><span class='pill k-code'>Code</span></td><td>Run schema, API, migration, package-consumer, service, end-to-end, upgrade/rollback, clean-process, and deliberately combined-process checks against the integration lock. Bind every result to exact source, executable, dependency, and environment identities.</td><td><code>&mdash;</code></td><td>6, then human</td></tr><tr><td><code>artifact_build</code><br><span class='muted'>Build the exact release candidate</span></td><td><span class='pill k-code'>Code</span></td><td>Build installers, packages, images, or deployment bundles only from the integration lock. Produce content hashes, embedded source/runtime probes, source-to-artifact bindings, dependency SBOM, applicable license notices, and signatures where configured; reject reused or unbound payloads.</td><td><code>&mdash;</code></td><td>3, then human</td></tr><tr><td><code>artifact_verify</code><br><span class='muted'>Verify the artifact rather than the tree</span></td><td><span class='pill k-code'>Code</span></td><td>Install, launch, upgrade, or deploy the exact artifact in the required clean profile; prove embedded source/runtime identities and payload hashes; rerun release-critical checks; and test uninstall or rollback where applicable.</td><td><code>&mdash;</code></td><td>5, then human</td></tr><tr><td><code>product_journey</code><br><span class='muted'>Exercise the approved product journey</span></td><td><span class='pill k-agent'>Agent</span></td><td>In a cold session and the product contract's required environment, execute the pre-approved newcomer/operator journeys against the exact artifact. Capture screenshots, logs, state, automation limits, and physical observations; do not replace the journey with a self-designed API harness.</td><td><code>devharmonics/audit</code></td><td>3, then human</td></tr><tr><td><code>audit</code><br><span class='muted'>Independently audit the acceptance packet</span></td><td><span class='pill k-agent'>Agent</span></td><td>In a fresh read-only route with no producer affinity, reconcile the original contract, locked governance, source and integration locks, executor receipts, verification, artifact binding, product journey, unresolved limits, and requested disposition. Reject stale, missing, circular, generalized, or self-certified evidence.</td><td><code>devharmonics/audit</code></td><td>4, then human</td></tr><tr><td><code>accept</code><br><span class='muted'>Accept, hold, or reject the product</span></td><td><span class='pill k-human'>Human</span></td><td>Review the product demonstration and concise acceptance packet. Decide whether the outcome is wanted and proven, and authorize an exact merge, tag, release, deployment, hold, or rejection without needing to inspect raw agent transcripts.</td><td><code>&mdash;</code></td><td><span class="muted">&mdash;</span></td></tr><tr><td><code>publish</code><br><span class='muted'>Apply the exact authorized disposition</span></td><td><span class='pill k-code'>Code</span></td><td>Execute only the idempotent merge, tag, release, deployment, rollback, or hold action named in the acceptance decision. Re-verify remote state and published artifact hashes and write a receipt. Hold performs no external mutation.</td><td><code>&mdash;</code></td><td>2, then human</td></tr><tr><td><code>record_learning</code><br><span class='muted'>Record outcome-linked learning</span></td><td><span class='pill k-code'>Code</span></td><td>Join producer trajectories and Switchyard routes to deterministic, product-journey, audit, publication, and human outcomes; update the rebuildable Ruflo memory projection; append replayable evaluation cases; and create promotion proposals without changing production behavior.</td><td><code>&mdash;</code></td><td><span class="muted">&mdash;</span></td></tr><tr><td><code>rejected</code><br><span class='muted'>Close with a rejection package</span></td><td><span class='pill k-code'>Code</span></td><td>Record why intake or acceptance was declined, preserve evidence, release leases and owned resources, and require a new or explicitly resumed product contract before further source work.</td><td><code>&mdash;</code></td><td><span class="muted">&mdash;</span></td></tr><tr><td><code>complete</code><br><span class='muted'>Close the durable run</span></td><td><span class='pill k-code'>Code</span></td><td>Finalize the DevHarmonics ledger, release owned leases/resources, preserve any explicit learning failure as follow-up debt, and generate the concise operator summary with exact evidence and disposition links.</td><td><code>&mdash;</code></td><td><span class="muted">&mdash;</span></td></tr></tbody>
+  </table></div>
+
+  <h2>Flow</h2>
+  <div class="panel"><table>
+    <thead><tr><th>From</th><th>Condition</th><th>Carries</th><th>To</th></tr></thead>
+    <tbody><tr><td><code>intake</code></td><td>pass</td><td><code>product-contract.json</code></td><td><code>preflight</code></td></tr><tr><td><code>intake</code></td><td>fail</td><td><code>intake.decision.json</code></td><td><code>rejected</code></td></tr><tr><td><code>preflight</code></td><td>pass</td><td><code>preflight-report.json</code></td><td><code>snapshot</code></td></tr><tr><td><code>preflight</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>preflight-report.json</code></td><td><code>preflight</code></td></tr><tr><td><code>snapshot</code></td><td>pass</td><td><code>workspace-lock.json</code></td><td><code>load_governance</code></td></tr><tr><td><code>snapshot</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>workspace-lock.json</code></td><td><code>snapshot</code></td></tr><tr><td><code>load_governance</code></td><td>pass</td><td><code>governance-contract.json</code></td><td><code>recall</code></td></tr><tr><td><code>load_governance</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>governance-contract.json</code></td><td><code>load_governance</code></td></tr><tr><td><code>recall</code></td><td>always</td><td><code>prior-outcomes.json</code></td><td><code>scout</code></td></tr><tr><td><code>scout</code></td><td>pass</td><td><code>scout-report.json</code></td><td><code>plan</code></td></tr><tr><td><code>scout</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>scout-report.json</code></td><td><code>scout</code></td></tr><tr><td><code>plan</code></td><td>pass</td><td><code>delivery-plan.json</code></td><td><code>plan_review</code></td></tr><tr><td><code>plan</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>delivery-plan.json</code></td><td><code>plan</code></td></tr><tr><td><code>plan_review</code></td><td>pass</td><td><code>plan-review.json</code></td><td><code>compile_graph</code></td></tr><tr><td><code>plan_review</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>plan-review.json</code></td><td><code>plan</code></td></tr><tr><td><code>compile_graph</code></td><td>pass</td><td><code>work-package-dag.json</code></td><td><code>build_swarm</code></td></tr><tr><td><code>compile_graph</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>work-package-dag.json</code></td><td><code>plan</code></td></tr><tr><td><code>build_swarm</code></td><td>pass</td><td><code>candidate-lock.json</code></td><td><code>repo_verify</code></td></tr><tr><td><code>build_swarm</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>work-package-results.json</code></td><td><code>build_swarm</code></td></tr><tr><td><code>repo_verify</code></td><td>pass</td><td><code>repo-verification.json</code></td><td><code>assemble</code></td></tr><tr><td><code>repo_verify</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>repo-verification.json</code></td><td><code>build_swarm</code></td></tr><tr><td><code>assemble</code></td><td>pass</td><td><code>integration-receipt.json</code></td><td><code>cross_repo_verify</code></td></tr><tr><td><code>assemble</code></td><td>fail</td><td><code>integration-receipt.json</code></td><td><code>integration_repair</code></td></tr><tr><td><code>integration_repair</code></td><td><span class='loop'>pass &#8635;</span></td><td><code>candidate-lock.json</code></td><td><code>repo_verify</code></td></tr><tr><td><code>integration_repair</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>integration-repair.json</code></td><td><code>integration_repair</code></td></tr><tr><td><code>cross_repo_verify</code></td><td>pass</td><td><code>cross-repo-verification.json</code></td><td><code>artifact_build</code></td></tr><tr><td><code>cross_repo_verify</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>cross-repo-verification.json</code></td><td><code>integration_repair</code></td></tr><tr><td><code>artifact_build</code></td><td>pass</td><td><code>artifact-manifest.json</code></td><td><code>artifact_verify</code></td></tr><tr><td><code>artifact_build</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>artifact-manifest.json</code></td><td><code>artifact_build</code></td></tr><tr><td><code>artifact_verify</code></td><td>pass</td><td><code>artifact-verification.json</code></td><td><code>product_journey</code></td></tr><tr><td><code>artifact_verify</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>artifact-verification.json</code></td><td><code>integration_repair</code></td></tr><tr><td><code>product_journey</code></td><td>pass</td><td><code>product-journey.json</code></td><td><code>audit</code></td></tr><tr><td><code>product_journey</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>product-journey.json</code></td><td><code>integration_repair</code></td></tr><tr><td><code>audit</code></td><td>pass</td><td><code>acceptance-packet.json</code></td><td><code>accept</code></td></tr><tr><td><code>audit</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>acceptance-audit.json</code></td><td><code>integration_repair</code></td></tr><tr><td><code>accept</code></td><td>pass</td><td><code>acceptance.decision.json</code></td><td><code>publish</code></td></tr><tr><td><code>accept</code></td><td>fail</td><td><code>acceptance.decision.json</code></td><td><code>rejected</code></td></tr><tr><td><code>publish</code></td><td>pass</td><td><code>publication-receipt.json</code></td><td><code>record_learning</code></td></tr><tr><td><code>publish</code></td><td><span class='loop'>fail &#8635;</span></td><td><code>publication-receipt.json</code></td><td><code>publish</code></td></tr><tr><td><code>record_learning</code></td><td>pass</td><td><code>learning-receipt.json</code></td><td><code>complete</code></td></tr><tr><td><code>record_learning</code></td><td>fail</td><td><code>publication-receipt.json</code></td><td><code>complete</code></td></tr><tr><td><code>rejected</code></td><td>always</td><td><code>rejection-summary.json</code></td><td><code>complete</code></td></tr></tbody>
+  </table></div>
+
+  <h2>Open questions</h2><div class="panel"><ul><li>Choose the physical product repository and upstream-source topology. Wholesale adoption is fixed; monorepo, forks plus pins, subtrees, or full vendored snapshots are not yet selected.</li><li>Confirm the proposed convergence baseline: DevHarmonics v1 as the durable runtime and mission-control chassis, with the current DevHarmonics hardened kernel ported into it.</li><li>Choose the native Windows, WSL2, or split host boundary after baseline tests establish process, path, localhost, UI, and clean-environment behavior.</li><li>WorkflowWright has no native dynamic map node. Decide whether to add a general schema feature or keep the standard schema and have the DevHarmonics compiler expand build_swarm into fully visible, budgeted children.</li><li>The reference spec uses backend codex plus logical route aliases so it remains valid with today's WorkflowWright renderer. Production execution requires a DevHarmonics backend/compilation extension; the metadata does not itself authorize OpenAI or any off-machine destination.</li><li>The 96-agent-call ceiling is a structural placeholder that closes the reference workflow's loops, not a proposed product default. Define project profiles with separate local, account-metered, anonymous-cloud, wall-clock, concurrency, model-residency, and disk ceilings.</li><li>Choose whether a basic compatibility install remains alongside full and developer profiles, or whether the complete runtime is always installed.</li><li>Choose the first preserved CivicCast failure replay. The system specification recommends the stale installer payload chain because it exercises the most boundaries.</li><li>Confirm default human gates and who may promote memory, prompt, skill, Switchyard route, adapter, or local-model changes.</li><li>Choose the first externally mutating adapters and authoritative repositories for merge, tag, artifact publication, deployment, and rollback.</li></ul></div>
+
+  <footer>
+    Generated from <code>workflow-spec.json</code>. The diagram, this table, and the scaffold
+    are all compiled from that one file — edit the spec and re-render rather than editing
+    any output by hand, or they will drift.
+  </footer>
+</div>
+<script>mermaid.initialize({startOnLoad:true,securityLevel:'loose',theme:'default',flowchart:{curve:'basis',useMaxWidth:true,htmlLabels:false,padding:10}});</script>
+</body>
+</html>

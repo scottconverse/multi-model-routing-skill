@@ -61,6 +61,7 @@ NOT_SHIPPED = [
     "CONTRIBUTING.md",                 # for contributors, not users
     "docs/DISCUSSIONS_SEED.md",        # GitHub Discussions material
     "docs/audits/",                    # records of review, however many
+    "docs/plans/",                     # planning history, not skill behaviour
     "docs/index.html",                 # the landing page, published via Pages
     "docs/.nojekyll",                  # Pages build hint
     ".gitignore",                      # repo hygiene; an install is not a repo
