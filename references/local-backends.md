@@ -23,9 +23,10 @@ stopped, the model may not fit in RAM/VRAM, or the model may lack the required
 capability. Count a model only after the engine can list it and the model has
 passed the smoke test.
 
-## 2. Call a compatible local endpoint
+## 2. Choose the one-shot or tool-loop lane
 
-`scripts/call_local.sh` accepts a base URL, model identifier, prompt, and token
+Use `scripts/call_local.sh` when one model response is enough. It accepts a
+base URL, model identifier, prompt, and token
 limit. It first tries the Anthropic Messages endpoint and falls back to the
 OpenAI Chat Completions endpoint when the selected engine reports that the
 first path is unsupported. If the engine requires a particular dialect, set
@@ -38,6 +39,31 @@ scripts/call_local.sh <BASE_URL> <MODEL> "Reply with exactly: OK" 512
 Use `-` or `file:PATH` for large prompts so the input does not pass through the
 operating system's argument-length limit. Keep the `[receipt]` line printed
 on stderr; it is evidence that the call actually happened.
+
+Use `scripts/local_agent.py` when the model must inspect the working tree and
+decide which tool to call next across multiple rounds:
+
+```bash
+python scripts/local_agent.py --model <MODEL> --task "<TASK>" --cwd <DIR> \
+  [--max-steps N] [--allow-write] [--base-url URL] [--no-sdk]
+```
+
+The primary route is LM Studio's SDK and `LLM.act()`. On first SDK use, the
+script creates `scripts/.venv-local-agent` and installs the `lmstudio` package
+there. The fallback (`--no-sdk`) is a stdlib-only OpenAI
+`/v1/chat/completions` tool loop. Its base URL defaults to
+`http://localhost:1234`; override it with `--base-url` or
+`LOCAL_AGENT_BASE_URL` for another compatible server. If that endpoint needs a
+bearer token, prefer `LOCAL_AGENT_API_KEY` over putting it on the command line.
+A custom base URL selects the raw route automatically because the LM Studio SDK
+uses a separate application API.
+
+The harness exposes `read_file`, `list_dir`, `grep`, and `run_command`.
+File-tool paths are jailed under `--cwd`; commands default to a read-only
+allowlist; `--allow-write` widens that command allowlist but never permits
+destructive commands such as `del` or `rm`; and `--max-steps` bounds the loop.
+It prints token usage for every step and a final `[receipt]` total on stderr.
+Keep those lines: the per-step accounting satisfies the skill's receipts rule.
 
 The endpoint can be on another machine, but a non-localhost endpoint is not
 private. The privacy property comes from the prompt staying on the local
@@ -57,10 +83,12 @@ JSON schema unless schema support has been verified. Parse one-word or
 line-oriented replies yourself, or route schema-sensitive work to a tier that
 has proven structured-output support.
 
-If using an agent loop over local weights, query the installed CLI's live help
-for supported local-provider values and pass the engine chosen by the
-inventory rule. Verify that the selected model supports the loop's required
-reasoning/tool capabilities before starting a long run.
+For an agent loop, use `local_agent.py` and verify that the selected model can
+emit OpenAI-style tool calls before starting a long run. Do not treat
+`codex --oss` as the default loop: it is known-fragile on models whose chat
+templates reject system messages inserted after the conversation begins. The
+resulting Jinja error (`System message must be at the beginning`) prevents the
+loop from running at all.
 
 ## 4. RAM, latency, and concurrency
 

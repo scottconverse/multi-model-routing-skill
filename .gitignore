@@ -7,3 +7,4 @@ references/local-notes.md
 # payload lists, which creates these; one got committed by accident in 0.3.2.
 __pycache__/
 *.pyc
+scripts/.venv-local-agent/

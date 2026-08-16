@@ -11,11 +11,40 @@ tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
 ### Changed
+- **Local model work now has two explicit lanes.** `scripts/call_local.sh`
+  remains the cheap one-shot path. New `scripts/local_agent.py` is the primary
+  tool-using local agent loop, with LM Studio SDK `LLM.act()` first and a
+  provider-neutral OpenAI chat-completions loop as the stdlib fallback.
+- **`codex --oss` is demoted to a known-fragile compatibility probe.** A live
+  LM Studio/Qwen run on 2026-08-15 failed before the loop began because Codex
+  inserted a system message after conversation start and the model's Jinja
+  template requires the system message first. The bundled harness avoids that
+  message-layout trap.
 - **Local engine selection is now provider-neutral.** The skill discovers the
   local engines available on the machine, counts their reachable and usable
   model inventories, and chooses the engine with the largest roster before
   selecting a task-fit model. It no longer assumes a particular local LLM
   engine.
+
+### Added
+- **`scripts/local_agent.py`** — a bounded local agent harness with
+  `read_file`, `list_dir`, `grep`, and `run_command`; a file-tool `--cwd` jail;
+  read-only commands by default; permanently blocked destructive commands;
+  `--max-steps`; Qwen reasoning-sentinel cleanup; and per-step plus total token
+  receipts. It self-bootstraps `scripts/.venv-local-agent` for the LM Studio
+  SDK, while `--no-sdk` needs only Python's standard library. Base URL and
+  bearer token are configurable by flags or environment for compatible local
+  servers.
+- **Offline coverage for the raw agent loop and safety boundaries.** The mock
+  server test proves a two-round tool call, tool-result replay, receipt totals,
+  reasoning cleanup, UTF-8 output, API-key forwarding, custom-endpoint routing,
+  step-budget validation, the path jail, and the destructive-command block.
+
+### Fixed
+- **Windows output is explicitly UTF-8.** `local_agent.py` reconfigures stdout
+  and stderr with `encoding="utf-8"` and replacement error handling so a local
+  model's Unicode output cannot discard a successful run on a legacy console
+  code page.
 
 ## [0.3.10] - 2026-08-10
 
