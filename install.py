@@ -64,6 +64,7 @@ NOT_SHIPPED = [
     "docs/DISCUSSIONS_SEED.md",        # GitHub Discussions material
     "docs/audits/",                    # records of review, however many
     "safety-lab/",                     # the harness trap-gauntlet; repo tooling, not skill
+    "tests/test_run_safety_lab.py",    # tests safety-lab/, which is repo tooling too
     "docs/plans/",                     # planning history, not skill behaviour
     "docs/index.html",                 # the landing page, published via Pages
     "docs/.nojekyll",                  # Pages build hint
