@@ -45,6 +45,7 @@ genuine error -- see the printed summary for which.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -179,12 +180,24 @@ def _audit_log(step, fn, call_args, out):
 # The command guards -- a destructive-command blocklist, a read-only command
 # allowlist, and a chain/redirection block -- were REMOVED 2026-08-16 by owner
 # directive. This harness runs on the owner's own hardware against trusted local
-# models doing the bulk of the work; a per-command nanny was proven (in the
-# 2026-08-16 safety lab) to block legitimate work while adding no safety the
-# model's own judgment did not already provide on that task. The read/write
-# boundary is now enforced by WHICH TOOLS are exposed (see make_tools and
-# --read-only), not by inspecting command strings. run_command executes exactly
-# what it is given, through the shell, with real chaining and redirection.
+# models doing the bulk of the work; the removal was justified at the time by a
+# single 2026-08-16 safety-lab run, read as proof that a per-command nanny
+# blocked legitimate work while adding no safety the model's own judgment did
+# not already provide.
+#
+# 2026-08-16 audit finding: that run does not support "proven." It was one
+# unblinded sample (n=1), and it was confounded -- the same commit that removed
+# the guards also added the write_file tool (which did not exist before) and
+# fixed a silent run_command quoting bug that had been discarding output. Either
+# change alone could explain the run completing where an earlier, guarded run
+# could not; the guards were never isolated as the variable. The command guards
+# stay removed pending an isolated re-run -- this audit fixes what the confound
+# does not excuse. In particular, an unbounded filesystem escape is not
+# justified by an unrelated confound, so the PATH boundary below is restored by
+# default. The read/write TOOL boundary (see make_tools and --read-only) still
+# governs which categories of action are exposed; run_command, when exposed,
+# still executes exactly what it is given, through the shell, with real
+# chaining and redirection.
 
 
 class ToolError(Exception):
@@ -192,18 +205,35 @@ class ToolError(Exception):
 
 
 class ConfinedCwd:
-    """Resolves tool paths relative to the working root.
+    """Resolves tool paths relative to the working root, and by default
+    enforces that root as a hard boundary.
 
-    The containment jail was removed 2026-08-16 by owner directive: a resolved
-    path may fall outside the root. Retained only for relative-path convenience
-    -- a bare filename resolves against --cwd."""
+    2026-08-16 owner directive removed this containment jail entirely, on the
+    strength of a safety-lab run later found (2026-08-16 audit) to be
+    confounded -- see the comment above. This restores it: by default,
+    resolve() refuses (raises ToolError) any path that resolves outside
+    `root`, for every tool, read or write. Pass allow_outside=True (the
+    harness's --allow-outside-cwd flag) to restore the pre-audit unbounded
+    behavior."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, allow_outside: bool = False):
         self.root = root.resolve()
+        self.allow_outside = allow_outside
 
     def resolve(self, rel: str) -> Path:
         candidate = Path(rel)
-        return (candidate if candidate.is_absolute() else self.root / candidate).resolve()
+        resolved = (candidate if candidate.is_absolute() else self.root / candidate).resolve()
+        if not self.allow_outside:
+            try:
+                resolved.relative_to(self.root)
+            except ValueError:
+                raise ToolError(
+                    f"Refused: {rel!r} resolves to {resolved}, which is "
+                    f"outside the confined working directory {self.root}. "
+                    f"Pass --allow-outside-cwd to the harness to permit paths "
+                    f"outside --cwd."
+                )
+        return resolved
 
 
 def _truncate(text: str, limit: int = TRUNCATE_LIMIT) -> str:
@@ -289,12 +319,21 @@ def make_tools(confined: ConfinedCwd, read_only: bool):
             if not f.is_file():
                 continue
             try:
+                # relative_to raises ValueError when f falls outside
+                # confined.root -- normally impossible now that resolve()
+                # enforces the boundary (fix 1), but --allow-outside-cwd or a
+                # symlink can still put a match here. Skip rather than crash
+                # the whole grep run over one file's path.
+                rel = f.relative_to(confined.root)
+            except ValueError:
+                continue
+            try:
                 text = f.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
             for i, line in enumerate(text.splitlines(), start=1):
                 if rx.search(line):
-                    matches.append(f"{f.relative_to(confined.root)}:{i}:{line}")
+                    matches.append(f"{rel}:{i}:{line}")
                     if len(matches) >= 500:
                         break
             if len(matches) >= 500:
@@ -335,8 +374,12 @@ def make_tools(confined: ConfinedCwd, read_only: bool):
         as needed. Only exposed when the harness is NOT in --read-only mode."""
         p = confined.resolve(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
-        return f"Wrote {len(content)} characters to {path}"
+        # newline="" disables universal-newline translation on write, so an LF
+        # `content` string is written back byte-exact instead of Python's
+        # default text-mode write silently turning \n into \r\n on Windows.
+        with open(p, "w", encoding="utf-8", newline="") as fh:
+            fh.write(content)
+        return f"Wrote {len(content)} characters to {p}"
 
     if read_only:
         return [read_file, list_dir, grep]
@@ -463,6 +506,31 @@ def run_sdk_loop(args, confined: ConfinedCwd) -> int:
     totals = {"prompt": 0, "predicted": 0, "total": 0}
     state = {"round": None, "final_text": None, "malformed_streak": 0}
 
+    def _current_step():
+        return state["round"]["index"] if state["round"] else None
+
+    def _audited(fn):
+        """Wrap a tool implementation so every call -- success or failure --
+        is written to LOCAL_AGENT_LOG. This is the SDK lane's audit trail
+        (fix: _audit_log was previously wired only into run_raw_loop, so the
+        default lane never logged anything). functools.wraps preserves the
+        signature and docstring the SDK inspects to build the tool schema."""
+
+        @functools.wraps(fn)
+        def wrapper(*call_args, **call_kwargs):
+            step = _current_step()
+            try:
+                result = fn(*call_args, **call_kwargs)
+            except (ToolError, TypeError) as exc:
+                _audit_log(step, fn.__name__, call_kwargs, f"ERROR: {exc}")
+                raise
+            _audit_log(step, fn.__name__, call_kwargs, result)
+            return result
+
+        return wrapper
+
+    tools = [_audited(fn) for fn in tools]
+
     def on_round_start(round_index: int) -> None:
         state["round"] = {"index": round_index, "tools": [], "stats": None}
 
@@ -512,16 +580,31 @@ def run_sdk_loop(args, confined: ConfinedCwd) -> int:
     def handle_invalid_tool_request(exc, request) -> str | None:
         state["malformed_streak"] += 1
         name = getattr(request, "name", "?")
+        # Named call_kwargs, not args: this closure shares a scope with
+        # run_sdk_loop's own `args` (the CLI Namespace) and a same-named
+        # local would only shadow it here, but the collision is confusing to
+        # read even though it can't mutate the outer value.
+        call_kwargs = dict(getattr(request, "arguments", None) or {})
+        error_text = f"Invalid tool call for {name!r}: {exc}"
         print(
             f"[step {state['round']['index'] if state['round'] else '?'}] "
             f"MALFORMED tool call (attempt {state['malformed_streak']}) "
             f"tool={name!r}: {exc}",
             file=sys.stderr,
         )
+        # exc.__cause__ is set only when this callback fires because a tool
+        # IMPLEMENTATION raised (see _audited above) -- that case is already
+        # logged there, with the real call kwargs. Log here only the cases
+        # that never reached a tool implementation at all: unknown tool name,
+        # arguments that failed schema parsing, or a tool call the model
+        # emitted that could not even be parsed (request is None). That is
+        # the injection/rejection evidence this audit trail exists for.
+        if getattr(exc, "__cause__", None) is None:
+            _audit_log(_current_step(), name, call_kwargs, f"REJECTED: {error_text}")
         # Returning the error message (rather than None/raising) feeds it back
         # to the model as the tool result, so it gets one more round to
         # correct itself -- the step budget is the hard backstop.
-        return f"Invalid tool call for {name!r}: {exc}"
+        return error_text
 
     from lmstudio import LMStudioPredictionError
 
@@ -661,6 +744,10 @@ def run_raw_loop(args, confined: ConfinedCwd) -> int:
             except json.JSONDecodeError as exc:
                 signature = (fn, "json_error")
                 error_text = f"Malformed tool call: could not parse arguments JSON: {exc}"
+                # Log the attempted-but-rejected call BEFORE branching: this
+                # is the injection/rejection evidence, and it must appear
+                # whether the model gets a retry or the loop gives up.
+                _audit_log(step, fn, {"raw_arguments": raw_args}, f"REJECTED: {error_text}")
                 if signature == last_malformed_signature:
                     print(
                         f"[step {step}] repeated malformed call for {fn!r} -- "
@@ -688,6 +775,7 @@ def run_raw_loop(args, confined: ConfinedCwd) -> int:
             impl = impls.get(fn)
             if impl is None:
                 error_text = f"Unknown tool {fn!r}."
+                _audit_log(step, fn, call_args, f"REJECTED: {error_text}")
                 messages.append(
                     {"role": "tool", "tool_call_id": tool_call_id, "content": error_text}
                 )
@@ -763,6 +851,16 @@ def parse_args(argv=None):
         help="Bearer token for the raw route (prefer env: LOCAL_AGENT_API_KEY)",
     )
     ap.add_argument("--no-sdk", action="store_true", help="Force the raw HTTP loop, skip the SDK route")
+    ap.add_argument(
+        "--allow-outside-cwd",
+        action="store_true",
+        help=(
+            "Let tool paths resolve outside --cwd (the pre-audit behavior). "
+            "Off by default: read_file, list_dir, grep, and write_file all "
+            "refuse (ToolError, shown to the model) a path that resolves "
+            "outside --cwd."
+        ),
+    )
     return ap.parse_args(argv)
 
 
@@ -790,11 +888,12 @@ def main(argv=None) -> int:
     if not cwd_path.exists() or not cwd_path.is_dir():
         print(f"error: --cwd {args.cwd!r} does not exist or is not a directory", file=sys.stderr)
         return 2
-    confined = ConfinedCwd(cwd_path)
+    confined = ConfinedCwd(cwd_path, allow_outside=args.allow_outside_cwd)
 
     print(
         f"[local_agent] model={args.model} cwd={confined.root} max_steps={args.max_steps} "
-        f"mode={'read-only' if args.read_only else 'full (run_command + write_file)'}",
+        f"mode={'read-only' if args.read_only else 'full (run_command + write_file)'} "
+        f"path-boundary={'OFF (--allow-outside-cwd)' if args.allow_outside_cwd else 'ON'}",
         file=sys.stderr,
     )
 
