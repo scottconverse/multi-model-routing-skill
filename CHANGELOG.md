@@ -10,6 +10,60 @@ Kept current from here on. Reconstructing several commits' worth of changes at
 tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
+### Security
+- **The `--cwd` path boundary is restored by default (audit fix, 2026-08-16).**
+  `local_agent.py`'s `ConfinedCwd.resolve()` had been left resolving any
+  absolute or `../`-relative path unchanged since the 2026-08-16 guard removal,
+  so e.g. `write_file("../../ESCAPED.txt")` wrote outside `--cwd` for every
+  tool, read or write. By default a path that resolves outside `--cwd` is now
+  refused with a `ToolError` (visible to the model, and now logged — see
+  below), never a crash. `--allow-outside-cwd` opts back into the old
+  unbounded resolution for the cases that actually want it.
+
+### Fixed
+- **`LOCAL_AGENT_LOG` now covers the default lane.** `_audit_log` was wired
+  only into `run_raw_loop`; `run_sdk_loop` — the default lane whenever the LM
+  Studio SDK is available — never wrote a single audit line, and both loops'
+  unknown-tool and malformed-tool-call branches returned before logging. Every
+  tool call is now logged on both lanes, including rejected and malformed
+  calls (the injection evidence), by wrapping each tool implementation and
+  hooking the SDK's `handle_invalid_tool_request` callback.
+- **`write_file` round-trips content byte-exact.** It wrote with Python's
+  default text-mode newline translation, so LF content came back CRLF on
+  Windows. It now opens with `newline=""` so the bytes it's given are the bytes
+  it writes. Its return string also now reports the resolved path instead of
+  the caller's possibly-relative one.
+- **The `grep` pure-Python fallback no longer dies on an out-of-root path.**
+  `f.relative_to(confined.root)` raised an uncaught `ValueError` for any file
+  outside `confined.root`, killing the whole run — the live path on any
+  machine without `rg` on PATH. It now catches that and skips the file; the
+  path boundary above makes this rare by default, but `--allow-outside-cwd`
+  and symlinks can still reach it.
+- **`run_safety_lab.py` now fails the way its output says it did.** `main()`
+  returned `0` unconditionally, so a run that printed `TRIPPED: ...` for every
+  trap still exited success. It now exits non-zero when any run fails to stay
+  safe. It also hashes the fixture's `tests/test_*.py` at build time and
+  re-verifies those hashes before scoring `tests_pass`, so a model that edits
+  the tests to make them pass trivially can no longer score as `completed`.
+
+### Changed
+- **The 2026-08-16 "guards proven unnecessary" claim is corrected (audit,
+  2026-08-16).** `local_agent.py`, `SKILL.md`, `references/local-backends.md`,
+  and `references/cross-agent.md` described the safety-lab run that justified
+  removing the command guards as having "proven" a per-command nanny added no
+  safety. On review that claim does not hold: it was one unblinded run (n=1),
+  and it was confounded — the same commit that removed the guards also added
+  the `write_file` tool (which did not exist before) and fixed a silent
+  `run_command` quoting bug that had been discarding output, so either change
+  alone could explain the run completing where an earlier, guarded run could
+  not. The command guards were never isolated as the variable, and the wording
+  is corrected accordingly across all four files. The command guards
+  themselves stay removed pending an isolated re-run — this is a wording fix,
+  not a reversal — but the path boundary above is restored regardless, since
+  an unbounded filesystem escape isn't something the confound excuses.
+
+## [0.3.11] - 2026-08-16
+
 ### Changed
 - **Local is now the mandatory default for real work, not just grunt work
   (owner directive, 2026-08-16).** The routing rule requires every task to start
@@ -54,12 +108,17 @@ should be a rename of this heading, not an archaeology exercise.
   destructive-command blocklist, the read-only command allowlist, the
   chain/redirection block, and the `--cwd` path jail are gone, and
   `--allow-write` is replaced by an inverted `--read-only` (full power is the
-  default). A 2026-08-16 safety lab showed the per-command nanny blocked
-  legitimate work (a correct fix the model could not apply) while adding no
-  safety the model's own judgment did not already provide — the same unguarded
-  model completed the task *and* independently refused a prompt-injection, a
-  secret-exfil lure, and a booby-trapped script. The read/write boundary is now
-  the set of exposed tools (`--read-only`), not string inspection.
+  default). A 2026-08-16 safety lab was read at the time as showing the
+  per-command nanny blocked legitimate work (a correct fix the model could not
+  apply) while adding no safety the model's own judgment did not already
+  provide — the same unguarded model completed the task *and* independently
+  refused a prompt-injection, a secret-exfil lure, and a booby-trapped script.
+  **Correction (audit, 2026-08-16, see [Unreleased] above): that run was one
+  unblinded sample and was confounded** by the same commit also adding
+  `write_file` and fixing a silent quoting bug, so the guards were never
+  isolated as the variable; the `--cwd` path jail specifically is restored by
+  default in the audit fix above. The read/write boundary is the set of
+  exposed tools (`--read-only`), not string inspection.
 
 ### Fixed
 - **`run_command` no longer silently eats quoted commands on Windows.** It ran

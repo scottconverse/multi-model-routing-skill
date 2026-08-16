@@ -136,11 +136,16 @@ This is the primary agent loop for local weights. The LM Studio SDK's
 `--base-url` or `LOCAL_AGENT_BASE_URL`. By default the tools are `read_file`,
 `list_dir`, `grep`, `run_command` (unrestricted — real shell, chaining, and
 redirection), and `write_file`; `--read-only` narrows to just the three read
-tools. There is no command allowlist and no destructive-command block (removed
-2026-08-16 by owner directive; the harness runs on the owner's own hardware
-against trusted local models). Run untrusted work in a disposable `--cwd` copy
-and set `LOCAL_AGENT_LOG=<file>` for a JSONL audit trail. `--max-steps` is the
-hard loop budget.
+tools. Every tool path is confined to `--cwd` by default (restored 2026-08-16
+by audit, after being removed 2026-08-16 by owner directive on the strength of
+a safety-lab run later found to be an unblinded, confounded n=1 — see
+`references/local-backends.md`); `--allow-outside-cwd` opts back into the old
+unbounded resolution. There is still no command allowlist and no
+destructive-command block for `run_command` itself (that removal is separate
+from the path boundary, and stands pending an isolated re-run of the safety
+lab). Run untrusted work in a disposable `--cwd` copy and set
+`LOCAL_AGENT_LOG=<file>` for a JSONL audit trail of every tool call, including
+rejected ones. `--max-steps` is the hard loop budget.
 
 Each step reports input/output tokens on stderr, followed by a total
 `[receipt]`. Those per-step token receipts satisfy the skill's receipts rule.

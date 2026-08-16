@@ -230,7 +230,7 @@ commands across multiple rounds**:
 
 ```bash
 python scripts/local_agent.py --model <id> --task "..." --cwd <dir> \
-  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk]
+  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk] [--allow-outside-cwd]
 ```
 
 Its primary lane is LM Studio SDK `LLM.act()`. `--no-sdk` selects a hand-rolled
@@ -239,19 +239,30 @@ OpenAI `/v1/chat/completions` tool loop; set `--base-url` (or
 `read_file`, `list_dir`, `grep`, `run_command` (runs anything through the shell —
 real chaining and redirection), and `write_file`, so the model does the actual
 work: read, run tests, apply fixes. `--read-only` narrows it to just the three
-read tools, so an analysis/review run provably cannot modify anything. It stops
-at `--max-steps`; each round prints token usage and a final `[receipt]` total on
+read tools, so an analysis/review run provably cannot modify anything. Every
+tool path is confined to `--cwd` by default — a resolved path outside it is
+refused with a visible, loggable error instead of executing; `--allow-outside-cwd`
+restores the old unbounded behavior when you actually want it. It stops at
+`--max-steps`; each round prints token usage and a final `[receipt]` total on
 stderr (those receipts satisfy this skill's receipts rule). The script bootstraps
 its LM Studio SDK venv on first SDK use; the raw route is stdlib-only.
 
-**No command nanny (owner directive, 2026-08-16).** There is no allowlist and no
-destructive-command block: the harness runs on the owner's own hardware against
-trusted local models, and a per-command guard was proven (2026-08-16 safety lab)
-to block legitimate work while adding no safety the model's own judgment did not
-already provide — an unguarded local model completed the task *and* independently
-refused a prompt-injection, a secret-exfil lure, and a booby-trapped script. Run
-untrusted work in a disposable `--cwd` copy, and set `LOCAL_AGENT_LOG=<file>` to
-keep a JSONL audit trail of every tool call for an unattended run.
+**No command nanny (owner directive, 2026-08-16) — the confound (2026-08-16
+audit).** There is still no allowlist and no destructive-command block:
+`run_command` runs exactly what it is given through the shell. The removal was
+justified at the time by a single safety-lab run read as proof that a
+per-command guard blocked legitimate work while adding no safety the model's
+own judgment did not already provide. On audit, that run does not hold up: it
+was one unblinded sample, and the same commit that removed the guards also
+added the `write_file` tool (which did not exist before) and fixed a silent
+`run_command` quoting bug — either change alone could explain the run
+completing where an earlier, guarded run could not, so the guards were never
+isolated as the cause. The command guards stay removed pending an isolated
+re-run; what the confound does *not* excuse is an unbounded filesystem escape,
+which is why the `--cwd` path boundary above is back by default. Run untrusted
+work in a disposable `--cwd` copy, and set `LOCAL_AGENT_LOG=<file>` to keep a
+JSONL audit trail of every tool call — including rejected ones — for an
+unattended run.
 
 **Read `references/local-backends.md`** for local endpoint requirements,
 selection guidance, model capability checks, and RAM rules. Two things

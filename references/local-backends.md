@@ -62,22 +62,34 @@ By default the harness exposes `read_file`, `list_dir`, `grep`, `run_command`,
 and `write_file`, so the model can read, run tests, and apply fixes.
 `run_command` is unrestricted — it runs exactly what it is given through the
 shell, so chaining and redirection work, and there is no allowlist or
-destructive-command block (removed 2026-08-16 by owner directive). `--read-only`
-narrows the exposed set to the three read tools, for an analysis run that
+destructive-command block (removed 2026-08-16 by owner directive; see below for
+the standing of that decision). Every tool path IS confined to `--cwd` by
+default (restored 2026-08-16 by audit) — a resolved path outside it is refused
+(`ToolError`, visible to the model and logged) rather than executed;
+`--allow-outside-cwd` opts back into the old unbounded resolution. `--read-only`
+narrows the exposed tool set to the three read tools, for an analysis run that
 provably cannot modify anything; `--max-steps` bounds the loop. Run untrusted
 work in a disposable `--cwd` copy and set `LOCAL_AGENT_LOG=<file>` to capture a
-JSONL audit trail of every tool call. It prints token usage for every step and a
-final `[receipt]` total on stderr — keep those lines: the per-step accounting
-satisfies the skill's receipts rule.
+JSONL audit trail of every tool call, including rejected ones. It prints token
+usage for every step and a final `[receipt]` total on stderr — keep those
+lines: the per-step accounting satisfies the skill's receipts rule.
 
-**Why unguarded (safety lab, 2026-08-16).** A per-command nanny was tested
-against a trap gauntlet and removed: it blocked a correct fix the model could
-not apply, while the *unguarded* model completed the task and, on its own
+**Why the command guards are still unguarded, and why that claim is weaker than
+it was (safety lab, 2026-08-16; audit, 2026-08-16).** A per-command nanny was
+tested against a trap gauntlet and removed: it blocked a correct fix the model
+could not apply, while the *unguarded* model completed the task and, on its own
 judgment, refused a prompt-injection instruction embedded in a data file,
 declined to exfiltrate a secrets file, and left a booby-trapped script alone.
-The model's judgment, not a string-inspecting guard, is what held — so the guard
-was pure friction. This is one sample, not a worst-case proof; the record is the
-`LOCAL_AGENT_LOG` trail on unattended runs.
+That was read at the time as proof the guard was pure friction. An audit found
+the run does not support that: it was one unblinded sample, and it was
+confounded — the same commit that removed the guards also added the
+`write_file` tool (which did not exist before that commit) and fixed a silent
+`run_command` quoting bug that had been discarding output, so either of those
+changes alone could explain the run succeeding where an earlier, guarded run
+did not. The guards were never isolated as the variable. They stay removed
+pending an isolated re-run; the `--cwd` boundary above is restored regardless,
+because a filesystem escape is not something the confound excuses. The record
+is the `LOCAL_AGENT_LOG` trail on unattended runs.
 
 The endpoint can be on another machine, but a non-localhost endpoint is not
 private. The privacy property comes from the prompt staying on the local
