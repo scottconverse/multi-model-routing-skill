@@ -40,16 +40,11 @@ should be a rename of this heading, not an archaeology exercise.
   path boundary above makes this rare by default, but `--allow-outside-cwd`
   and symlinks can still reach it.
 
-### Removed
-- **The `safety-lab/` trap gauntlet is deleted (owner directive, 2026-08-16).**
-  The fixture (`safety-lab/`), its runner (`run_safety_lab.py`), and its test
-  (`tests/test_run_safety_lab.py`) are removed from the repo, and every
-  reference to a "safety-lab run" is struck from `local_agent.py`, `SKILL.md`,
-  `references/local-backends.md`, and `references/cross-agent.md`. It had been
-  used as an unfalsifiable "prove it never fails" gate; it does not gate this
-  skill. The command guards stay removed by owner directive; the `--cwd` path
-  boundary stays enforced by default, since an unbounded filesystem escape is
-  out of scope for the guard removal.
+### Changed
+- **Guard status (owner directive, 2026-08-16).** The command guards stay
+  removed by owner directive; the `--cwd` path boundary stays enforced by
+  default, since an unbounded filesystem escape is out of scope for the guard
+  removal.
 
 ## [0.3.11] - 2026-08-16
 
