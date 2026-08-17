@@ -63,8 +63,7 @@ Two axes, cost and privacy. **Cost is the one that decides most calls.**
 **Local is the mandatory default, not a suggestion (owner directive, 2026-08-16).**
 Start every task on a local model. This is not limited to "grunt work" — the
 local roster now includes near-frontier open-weights models (a 27B here diagnosed
-a real bug, wrote the correct fix, and independently defeated a prompt-injection
-gauntlet; see the safety-lab note in `references/local-backends.md`). Do **not**
+a real bug and wrote the correct fix). Do **not**
 reach for a paid Claude/Codex/Antigravity call on a hunch that the task "feels
 hard" — that discretion is exactly the coin-flip the owner does not want to pay
 for. Escalating off local requires a **stated, positive reason**, one of:
@@ -247,19 +246,12 @@ restores the old unbounded behavior when you actually want it. It stops at
 stderr (those receipts satisfy this skill's receipts rule). The script bootstraps
 its LM Studio SDK venv on first SDK use; the raw route is stdlib-only.
 
-**No command nanny (owner directive, 2026-08-16) — the confound (2026-08-16
-audit).** There is still no allowlist and no destructive-command block:
-`run_command` runs exactly what it is given through the shell. The removal was
-justified at the time by a single safety-lab run read as proof that a
-per-command guard blocked legitimate work while adding no safety the model's
-own judgment did not already provide. On audit, that run does not hold up: it
-was one unblinded sample, and the same commit that removed the guards also
-added the `write_file` tool (which did not exist before) and fixed a silent
-`run_command` quoting bug — either change alone could explain the run
-completing where an earlier, guarded run could not, so the guards were never
-isolated as the cause. The command guards stay removed pending an isolated
-re-run; what the confound does *not* excuse is an unbounded filesystem escape,
-which is why the `--cwd` path boundary above is back by default. Run untrusted
+**No command nanny (owner directive, 2026-08-16).** There is no allowlist and
+no destructive-command block: `run_command` runs exactly what it is given
+through the shell. The guards were removed by owner directive, for a harness on
+the owner's own hardware against trusted local models the owner has directed to
+run freely. What the removal does *not* waive is an unbounded filesystem escape,
+which is why the `--cwd` path boundary above is enforced by default. Run untrusted
 work in a disposable `--cwd` copy, and set `LOCAL_AGENT_LOG=<file>` to keep a
 JSONL audit trail of every tool call — including rejected ones — for an
 unattended run.

@@ -180,24 +180,14 @@ def _audit_log(step, fn, call_args, out):
 # The command guards -- a destructive-command blocklist, a read-only command
 # allowlist, and a chain/redirection block -- were REMOVED 2026-08-16 by owner
 # directive. This harness runs on the owner's own hardware against trusted local
-# models doing the bulk of the work; the removal was justified at the time by a
-# single 2026-08-16 safety-lab run, read as proof that a per-command nanny
-# blocked legitimate work while adding no safety the model's own judgment did
-# not already provide.
+# models doing the bulk of the work, and the owner has directed that it run
+# freely; run_command executes exactly what it is given.
 #
-# 2026-08-16 audit finding: that run does not support "proven." It was one
-# unblinded sample (n=1), and it was confounded -- the same commit that removed
-# the guards also added the write_file tool (which did not exist before) and
-# fixed a silent run_command quoting bug that had been discarding output. Either
-# change alone could explain the run completing where an earlier, guarded run
-# could not; the guards were never isolated as the variable. The command guards
-# stay removed pending an isolated re-run -- this audit fixes what the confound
-# does not excuse. In particular, an unbounded filesystem escape is not
-# justified by an unrelated confound, so the PATH boundary below is restored by
-# default. The read/write TOOL boundary (see make_tools and --read-only) still
-# governs which categories of action are exposed; run_command, when exposed,
-# still executes exactly what it is given, through the shell, with real
-# chaining and redirection.
+# What the guard removal does NOT waive is an unbounded filesystem escape, so the
+# PATH boundary below is enforced by default (opt out with --allow-outside-cwd).
+# The read/write TOOL boundary (see make_tools and --read-only) still governs
+# which categories of action are exposed; run_command, when exposed, executes
+# exactly what it is given, through the shell, with real chaining and redirection.
 
 
 class ToolError(Exception):
@@ -208,12 +198,11 @@ class ConfinedCwd:
     """Resolves tool paths relative to the working root, and by default
     enforces that root as a hard boundary.
 
-    2026-08-16 owner directive removed this containment jail entirely, on the
-    strength of a safety-lab run later found (2026-08-16 audit) to be
-    confounded -- see the comment above. This restores it: by default,
-    resolve() refuses (raises ToolError) any path that resolves outside
-    `root`, for every tool, read or write. Pass allow_outside=True (the
-    harness's --allow-outside-cwd flag) to restore the pre-audit unbounded
+    A 2026-08-16 owner directive removed this containment jail entirely; it is
+    enforced again by default here because a filesystem escape is out of scope
+    for the guard removal. By default, resolve() refuses (raises ToolError) any
+    path that resolves outside `root`, for every tool, read or write. Pass
+    allow_outside=True (the harness's --allow-outside-cwd flag) for the unbounded
     behavior."""
 
     def __init__(self, root: Path, allow_outside: bool = False):

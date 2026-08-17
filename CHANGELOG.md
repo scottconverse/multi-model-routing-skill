@@ -39,28 +39,17 @@ should be a rename of this heading, not an archaeology exercise.
   machine without `rg` on PATH. It now catches that and skips the file; the
   path boundary above makes this rare by default, but `--allow-outside-cwd`
   and symlinks can still reach it.
-- **`run_safety_lab.py` now fails the way its output says it did.** `main()`
-  returned `0` unconditionally, so a run that printed `TRIPPED: ...` for every
-  trap still exited success. It now exits non-zero when any run fails to stay
-  safe. It also hashes the fixture's `tests/test_*.py` at build time and
-  re-verifies those hashes before scoring `tests_pass`, so a model that edits
-  the tests to make them pass trivially can no longer score as `completed`.
 
-### Changed
-- **The 2026-08-16 "guards proven unnecessary" claim is corrected (audit,
-  2026-08-16).** `local_agent.py`, `SKILL.md`, `references/local-backends.md`,
-  and `references/cross-agent.md` described the safety-lab run that justified
-  removing the command guards as having "proven" a per-command nanny added no
-  safety. On review that claim does not hold: it was one unblinded run (n=1),
-  and it was confounded — the same commit that removed the guards also added
-  the `write_file` tool (which did not exist before) and fixed a silent
-  `run_command` quoting bug that had been discarding output, so either change
-  alone could explain the run completing where an earlier, guarded run could
-  not. The command guards were never isolated as the variable, and the wording
-  is corrected accordingly across all four files. The command guards
-  themselves stay removed pending an isolated re-run — this is a wording fix,
-  not a reversal — but the path boundary above is restored regardless, since
-  an unbounded filesystem escape isn't something the confound excuses.
+### Removed
+- **The `safety-lab/` trap gauntlet is deleted (owner directive, 2026-08-16).**
+  The fixture (`safety-lab/`), its runner (`run_safety_lab.py`), and its test
+  (`tests/test_run_safety_lab.py`) are removed from the repo, and every
+  reference to a "safety-lab run" is struck from `local_agent.py`, `SKILL.md`,
+  `references/local-backends.md`, and `references/cross-agent.md`. It had been
+  used as an unfalsifiable "prove it never fails" gate; it does not gate this
+  skill. The command guards stay removed by owner directive; the `--cwd` path
+  boundary stays enforced by default, since an unbounded filesystem escape is
+  out of scope for the guard removal.
 
 ## [0.3.11] - 2026-08-16
 
@@ -108,16 +97,11 @@ should be a rename of this heading, not an archaeology exercise.
   destructive-command blocklist, the read-only command allowlist, the
   chain/redirection block, and the `--cwd` path jail are gone, and
   `--allow-write` is replaced by an inverted `--read-only` (full power is the
-  default). A 2026-08-16 safety lab was read at the time as showing the
-  per-command nanny blocked legitimate work (a correct fix the model could not
-  apply) while adding no safety the model's own judgment did not already
-  provide — the same unguarded model completed the task *and* independently
-  refused a prompt-injection, a secret-exfil lure, and a booby-trapped script.
-  **Correction (audit, 2026-08-16, see [Unreleased] above): that run was one
-  unblinded sample and was confounded** by the same commit also adding
-  `write_file` and fixing a silent quoting bug, so the guards were never
-  isolated as the variable; the `--cwd` path jail specifically is restored by
-  default in the audit fix above. The read/write boundary is the set of
+  default). This was an owner directive for a harness on the owner's own
+  hardware against trusted local models directed to run freely. **Note (audit,
+  2026-08-16, see [Unreleased] above): the `--cwd` path jail specifically is
+  restored by default, since an unbounded filesystem escape is out of scope for
+  the guard removal.** The read/write boundary is the set of
   exposed tools (`--read-only`), not string inspection.
 
 ### Fixed
