@@ -179,15 +179,16 @@ def _audit_log(step, fn, call_args, out):
 
 # The command guards -- a destructive-command blocklist, a read-only command
 # allowlist, and a chain/redirection block -- were REMOVED 2026-08-16 by owner
-# directive. This harness runs on the owner's own hardware against trusted local
-# models doing the bulk of the work, and the owner has directed that it run
-# freely; run_command executes exactly what it is given.
+# directive, and the --cwd PATH boundary was removed as a default by a later
+# owner directive the same day. This harness runs on the owner's own hardware
+# against trusted local models the owner has directed to run freely; run_command
+# executes exactly what it is given and tool paths resolve anywhere by default.
 #
-# What the guard removal does NOT waive is an unbounded filesystem escape, so the
-# PATH boundary below is enforced by default (opt out with --allow-outside-cwd).
-# The read/write TOOL boundary (see make_tools and --read-only) still governs
-# which categories of action are exposed; run_command, when exposed, executes
-# exactly what it is given, through the shell, with real chaining and redirection.
+# The path boundary is available as an opt-in (--confine-cwd) but is OFF unless
+# asked for. The read/write TOOL boundary (see make_tools and --read-only) still
+# governs which categories of action are exposed; run_command, when exposed,
+# executes exactly what it is given, through the shell, with real chaining and
+# redirection.
 
 
 class ToolError(Exception):
@@ -195,17 +196,13 @@ class ToolError(Exception):
 
 
 class ConfinedCwd:
-    """Resolves tool paths relative to the working root, and by default
-    enforces that root as a hard boundary.
+    """Resolves tool paths relative to the working root. The root is NOT a
+    boundary by default (owner directive, 2026-08-16): resolve() returns paths
+    anywhere on the filesystem. Construct with allow_outside=False (the
+    harness's --confine-cwd flag) to opt into the hard boundary, in which case
+    resolve() refuses (raises ToolError) any path outside `root`."""
 
-    A 2026-08-16 owner directive removed this containment jail entirely; it is
-    enforced again by default here because a filesystem escape is out of scope
-    for the guard removal. By default, resolve() refuses (raises ToolError) any
-    path that resolves outside `root`, for every tool, read or write. Pass
-    allow_outside=True (the harness's --allow-outside-cwd flag) for the unbounded
-    behavior."""
-
-    def __init__(self, root: Path, allow_outside: bool = False):
+    def __init__(self, root: Path, allow_outside: bool = True):
         self.root = root.resolve()
         self.allow_outside = allow_outside
 
@@ -309,10 +306,9 @@ def make_tools(confined: ConfinedCwd, read_only: bool):
                 continue
             try:
                 # relative_to raises ValueError when f falls outside
-                # confined.root -- normally impossible now that resolve()
-                # enforces the boundary (fix 1), but --allow-outside-cwd or a
-                # symlink can still put a match here. Skip rather than crash
-                # the whole grep run over one file's path.
+                # confined.root -- the common case now that the boundary is off
+                # by default, and also reachable via a symlink under --confine-cwd.
+                # Skip rather than crash the whole grep run over one file's path.
                 rel = f.relative_to(confined.root)
             except ValueError:
                 continue
@@ -843,11 +839,15 @@ def parse_args(argv=None):
     ap.add_argument(
         "--allow-outside-cwd",
         action="store_true",
+        help="Deprecated no-op: tool paths resolve outside --cwd by default now.",
+    )
+    ap.add_argument(
+        "--confine-cwd",
+        action="store_true",
         help=(
-            "Let tool paths resolve outside --cwd (the pre-audit behavior). "
-            "Off by default: read_file, list_dir, grep, and write_file all "
-            "refuse (ToolError, shown to the model) a path that resolves "
-            "outside --cwd."
+            "Opt into the --cwd path boundary: read_file, list_dir, grep, and "
+            "write_file refuse (ToolError, shown to the model) a path that "
+            "resolves outside --cwd. Off by default (owner directive)."
         ),
     )
     return ap.parse_args(argv)
@@ -877,12 +877,12 @@ def main(argv=None) -> int:
     if not cwd_path.exists() or not cwd_path.is_dir():
         print(f"error: --cwd {args.cwd!r} does not exist or is not a directory", file=sys.stderr)
         return 2
-    confined = ConfinedCwd(cwd_path, allow_outside=args.allow_outside_cwd)
+    confined = ConfinedCwd(cwd_path, allow_outside=not args.confine_cwd)
 
     print(
         f"[local_agent] model={args.model} cwd={confined.root} max_steps={args.max_steps} "
         f"mode={'read-only' if args.read_only else 'full (run_command + write_file)'} "
-        f"path-boundary={'OFF (--allow-outside-cwd)' if args.allow_outside_cwd else 'ON'}",
+        f"path-boundary={'ON (--confine-cwd)' if args.confine_cwd else 'OFF'}",
         file=sys.stderr,
     )
 

@@ -136,12 +136,11 @@ This is the primary agent loop for local weights. The LM Studio SDK's
 `--base-url` or `LOCAL_AGENT_BASE_URL`. By default the tools are `read_file`,
 `list_dir`, `grep`, `run_command` (unrestricted — real shell, chaining, and
 redirection), and `write_file`; `--read-only` narrows to just the three read
-tools. Every tool path is confined to `--cwd` by default (removed 2026-08-16
-by owner directive, restored by the 2026-08-16 audit); `--allow-outside-cwd`
-opts back into the old unbounded resolution. There is still no command allowlist
-and no destructive-command block for `run_command` itself (that removal is
-separate from the path boundary). Run untrusted work in a disposable `--cwd`
-copy and set
+tools. Tool paths resolve anywhere by default (owner directive, 2026-08-16);
+`--confine-cwd` opts into a `--cwd` boundary that refuses a path resolving
+outside it. There is still no command allowlist and no destructive-command
+block for `run_command` itself (that removal is separate from the path
+boundary). Run untrusted work in a disposable `--cwd` copy and set
 `LOCAL_AGENT_LOG=<file>` for a JSONL audit trail of every tool call, including
 rejected ones. `--max-steps` is the hard loop budget.
 

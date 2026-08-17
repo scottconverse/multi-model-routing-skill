@@ -7,15 +7,15 @@ These encode the harness's behaviour AFTER:
   - the 2026-08-16 owner directive that removed the command guards
     (destructive-command block, read-only allowlist, chain/redirection block)
     and added the write_file tool, and
-  - the 2026-08-16 audit fix that restored the --cwd PATH boundary by default
-    (with an explicit --allow-outside-cwd escape hatch), made write_file
-    byte-exact and report the resolved path, made the grep fallback survive
-    an out-of-root path, and wired LOCAL_AGENT_LOG into both loops including
-    rejected/malformed calls.
+  - the 2026-08-16 audit fix that made write_file byte-exact and report the
+    resolved path, made the grep fallback survive an out-of-root path, and
+    wired LOCAL_AGENT_LOG into both loops including rejected/malformed calls, and
+  - the 2026-08-16 owner directive that turned the --cwd PATH boundary OFF by
+    default, leaving it available only as an opt-in (--confine-cwd).
 The command guards (destructive-command block, allowlist, chain block) stay
 removed; the read/write TOOL boundary is still the set of exposed tools
 (--read-only), not string inspection. The PATH boundary is separate and is
-back on by default. Non-ASCII literals are written as \\u escapes on purpose:
+OFF by default. Non-ASCII literals are written as \\u escapes on purpose:
 the install guard requires every shipped .py file to be cp437-safe.
 """
 
@@ -122,32 +122,40 @@ with tempfile.TemporaryDirectory() as tmp:
     full["run_command"](rm_cmd)
     check("no destructive-command block: delete runs", not (root / "victim.txt").exists())
 
-    # --- fix 1: the --cwd path boundary is back on by default --------------
+    # --- path boundary is OFF by default (owner directive) -----------------
+    # Unbounded is the default now; opt back in with allow_outside=False
+    # (the harness --confine-cwd flag). Prove both: default writes outside,
+    # a confined instance refuses.
     escape_path = root.parent / "escaped-by-local-agent-test.txt"
     try:
         rel_escape = f"../{escape_path.name}"
 
-        raised = False
-        try:
-            full["write_file"](rel_escape, "should never land here")
-        except local_agent.ToolError:
-            raised = True
-        check("fix1: default mode refuses write_file outside --cwd", raised)
-        check("fix1: refused write_file did not create the file", not escape_path.exists())
+        full["write_file"](rel_escape, "unbounded by default")
+        check("default (no boundary): write_file outside --cwd succeeds", escape_path.exists())
+
+        confine = {fn.__name__: fn for fn in local_agent.make_tools(
+            local_agent.ConfinedCwd(root, allow_outside=False), False)}
 
         raised = False
         try:
-            full["read_file"](rel_escape)
+            confine["write_file"](rel_escape, "should never land here")
         except local_agent.ToolError:
             raised = True
-        check("fix1: default mode refuses read_file outside --cwd", raised)
+        check("--confine-cwd: refuses write_file outside --cwd", raised)
 
         raised = False
         try:
-            full["list_dir"]("..")
+            confine["read_file"](rel_escape)
         except local_agent.ToolError:
             raised = True
-        check("fix1: default mode refuses list_dir outside --cwd", raised)
+        check("--confine-cwd: refuses read_file outside --cwd", raised)
+
+        raised = False
+        try:
+            confine["list_dir"]("..")
+        except local_agent.ToolError:
+            raised = True
+        check("--confine-cwd: refuses list_dir outside --cwd", raised)
     finally:
         if escape_path.exists():
             escape_path.unlink()
@@ -419,7 +427,7 @@ ro_help = subprocess.run(
 )
 check("--help succeeds", ro_help.returncode == 0, ro_help.stderr)
 check("--help documents provider-neutral base URL", "LOCAL_AGENT_BASE_URL" in ro_help.stdout)
-check("--help documents --allow-outside-cwd", "--allow-outside-cwd" in ro_help.stdout)
+check("--help documents --confine-cwd", "--confine-cwd" in ro_help.stdout)
 
 bad_budget = subprocess.run(
     [

@@ -11,14 +11,13 @@ tag time is how the docs fell behind at 0.3.0, 0.3.2, 0.3.4 and 0.3.5; tagging
 should be a rename of this heading, not an archaeology exercise.
 
 ### Security
-- **The `--cwd` path boundary is restored by default (audit fix, 2026-08-16).**
-  `local_agent.py`'s `ConfinedCwd.resolve()` had been left resolving any
-  absolute or `../`-relative path unchanged since the 2026-08-16 guard removal,
-  so e.g. `write_file("../../ESCAPED.txt")` wrote outside `--cwd` for every
-  tool, read or write. By default a path that resolves outside `--cwd` is now
-  refused with a `ToolError` (visible to the model, and now logged — see
-  below), never a crash. `--allow-outside-cwd` opts back into the old
-  unbounded resolution for the cases that actually want it.
+- **The `--cwd` path boundary is available as an opt-in (`--confine-cwd`).**
+  `local_agent.py`'s `ConfinedCwd.resolve()` supports a hard boundary that
+  refuses any absolute or `../`-relative path resolving outside `--cwd`
+  (`ToolError`, visible to the model and logged, never a crash). Per owner
+  directive it is OFF by default — tool paths resolve anywhere — and is enabled
+  with `--confine-cwd`. (An earlier audit had made the boundary the default;
+  the owner directive supersedes that.)
 
 ### Fixed
 - **`LOCAL_AGENT_LOG` now covers the default lane.** `_audit_log` was wired
@@ -37,14 +36,13 @@ should be a rename of this heading, not an archaeology exercise.
   `f.relative_to(confined.root)` raised an uncaught `ValueError` for any file
   outside `confined.root`, killing the whole run — the live path on any
   machine without `rg` on PATH. It now catches that and skips the file; the
-  path boundary above makes this rare by default, but `--allow-outside-cwd`
-  and symlinks can still reach it.
+  path boundary (opt-in via `--confine-cwd`) would make this rare, but it is
+  off by default, so out-of-root paths are the common case.
 
 ### Changed
 - **Guard status (owner directive, 2026-08-16).** The command guards stay
-  removed by owner directive; the `--cwd` path boundary stays enforced by
-  default, since an unbounded filesystem escape is out of scope for the guard
-  removal.
+  removed by owner directive, and the `--cwd` path boundary is OFF by default —
+  tool paths resolve anywhere — available only as an opt-in (`--confine-cwd`).
 
 ## [0.3.11] - 2026-08-16
 
@@ -93,10 +91,10 @@ should be a rename of this heading, not an archaeology exercise.
   chain/redirection block, and the `--cwd` path jail are gone, and
   `--allow-write` is replaced by an inverted `--read-only` (full power is the
   default). This was an owner directive for a harness on the owner's own
-  hardware against trusted local models directed to run freely. **Note (audit,
-  2026-08-16, see [Unreleased] above): the `--cwd` path jail specifically is
-  restored by default, since an unbounded filesystem escape is out of scope for
-  the guard removal.** The read/write boundary is the set of
+  hardware against trusted local models directed to run freely. **Note (see
+  [Unreleased] above): the `--cwd` path jail is available as an opt-in
+  (`--confine-cwd`) but is OFF by default per owner directive.** The read/write
+  boundary is the set of
   exposed tools (`--read-only`), not string inspection.
 
 ### Fixed

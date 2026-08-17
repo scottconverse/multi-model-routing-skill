@@ -229,7 +229,7 @@ commands across multiple rounds**:
 
 ```bash
 python scripts/local_agent.py --model <id> --task "..." --cwd <dir> \
-  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk] [--allow-outside-cwd]
+  [--max-steps N] [--read-only] [--base-url URL] [--no-sdk] [--confine-cwd]
 ```
 
 Its primary lane is LM Studio SDK `LLM.act()`. `--no-sdk` selects a hand-rolled
@@ -238,10 +238,10 @@ OpenAI `/v1/chat/completions` tool loop; set `--base-url` (or
 `read_file`, `list_dir`, `grep`, `run_command` (runs anything through the shell —
 real chaining and redirection), and `write_file`, so the model does the actual
 work: read, run tests, apply fixes. `--read-only` narrows it to just the three
-read tools, so an analysis/review run provably cannot modify anything. Every
-tool path is confined to `--cwd` by default — a resolved path outside it is
-refused with a visible, loggable error instead of executing; `--allow-outside-cwd`
-restores the old unbounded behavior when you actually want it. It stops at
+read tools, so an analysis/review run provably cannot modify anything. Tool
+paths resolve anywhere by default (owner directive) — `--confine-cwd` opts into
+a `--cwd` boundary that refuses a resolved path outside it with a visible,
+loggable error instead of executing. It stops at
 `--max-steps`; each round prints token usage and a final `[receipt]` total on
 stderr (those receipts satisfy this skill's receipts rule). The script bootstraps
 its LM Studio SDK venv on first SDK use; the raw route is stdlib-only.
@@ -250,8 +250,9 @@ its LM Studio SDK venv on first SDK use; the raw route is stdlib-only.
 no destructive-command block: `run_command` runs exactly what it is given
 through the shell. The guards were removed by owner directive, for a harness on
 the owner's own hardware against trusted local models the owner has directed to
-run freely. What the removal does *not* waive is an unbounded filesystem escape,
-which is why the `--cwd` path boundary above is enforced by default. Run untrusted
+run freely, including tool paths that resolve anywhere on the filesystem by
+default. A `--cwd` path boundary is available as an opt-in (`--confine-cwd`) but
+is off unless asked for. Run untrusted
 work in a disposable `--cwd` copy, and set `LOCAL_AGENT_LOG=<file>` to keep a
 JSONL audit trail of every tool call — including rejected ones — for an
 unattended run.

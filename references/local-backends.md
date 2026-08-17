@@ -63,10 +63,10 @@ and `write_file`, so the model can read, run tests, and apply fixes.
 `run_command` is unrestricted — it runs exactly what it is given through the
 shell, so chaining and redirection work, and there is no allowlist or
 destructive-command block (removed 2026-08-16 by owner directive; see below for
-the standing of that decision). Every tool path IS confined to `--cwd` by
-default (restored 2026-08-16 by audit) — a resolved path outside it is refused
-(`ToolError`, visible to the model and logged) rather than executed;
-`--allow-outside-cwd` opts back into the old unbounded resolution. `--read-only`
+the standing of that decision). Tool paths resolve anywhere by default (owner
+directive, 2026-08-16); `--confine-cwd` opts into a `--cwd` boundary that
+refuses a resolved path outside it (`ToolError`, visible to the model and
+logged) rather than executing it. `--read-only`
 narrows the exposed tool set to the three read tools, for an analysis run that
 provably cannot modify anything; `--max-steps` bounds the loop. Run untrusted
 work in a disposable `--cwd` copy and set `LOCAL_AGENT_LOG=<file>` to capture a
@@ -78,10 +78,9 @@ lines: the per-step accounting satisfies the skill's receipts rule.
 per-command allowlist and no destructive-command block: `run_command` executes
 exactly what it is given, through the shell. That is an owner directive for a
 harness running on the owner's own hardware against trusted local models, which
-the owner has directed to run freely. What the removal does *not* waive is an
-unbounded filesystem escape, so the `--cwd` path boundary above is enforced by
-default (opt out with `--allow-outside-cwd`). The record is the
-`LOCAL_AGENT_LOG` trail on unattended runs.
+the owner has directed to run freely. Tool paths also resolve anywhere by
+default; a `--cwd` path boundary is available as an opt-in (`--confine-cwd`).
+The record is the `LOCAL_AGENT_LOG` trail on unattended runs.
 
 The endpoint can be on another machine, but a non-localhost endpoint is not
 private. The privacy property comes from the prompt staying on the local
